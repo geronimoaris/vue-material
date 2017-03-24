@@ -5233,7 +5233,7 @@ to {
 .md-tabs .md-tabs-navigation.md-has-icon.md-has-label .md-icon {
         margin-bottom: 10px;
 }
-.md-tabs .md-tabs-navigation.md-centered {
+.md-tabs .md-tabs-navigation.md-centered .md-tabs-navigation-container {
       -ms-flex-pack: center;
           justify-content: center;
 }
