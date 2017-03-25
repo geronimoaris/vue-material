@@ -3569,6 +3569,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
+//
 
 exports.default = {
   name: 'md-chips',
@@ -12450,6 +12451,10 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         if (!('button' in $event) && _vm._k($event.keyCode, "tab", 9)) { return null; }
         $event.preventDefault();
         _vm.addChip($event)
+      }, function($event) {
+        if (!('button' in $event) && $event.keyCode !== 188) { return null; }
+        $event.preventDefault();
+        _vm.addChip($event)
       }]
     },
     model: {
@@ -12826,7 +12831,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-table-head-text md-test"
   }, [(_vm.mdSortBy) ? _c('md-icon', {
     staticClass: "md-sortable-icon"
-  }, [_vm._v("arrow_downward")]) : _vm._e(), _vm._v(" "), _vm._t("default"), _vm._v(" "), (_vm.mdTooltip) ? _c('md-tooltip', [_vm._v(_vm._s(_vm.mdTooltip))]) : _vm._e()], 2), _vm._v(" "), _c('md-ink-ripple', {
+  }, [_vm._v("arrow_upward")]) : _vm._e(), _vm._v(" "), _vm._t("default"), _vm._v(" "), (_vm.mdTooltip) ? _c('md-tooltip', [_vm._v(_vm._s(_vm.mdTooltip))]) : _vm._e()], 2), _vm._v(" "), _c('md-ink-ripple', {
     attrs: {
       "md-disabled": !_vm.mdSortBy
     }
