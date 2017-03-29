@@ -3570,6 +3570,7 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
+//
 
 exports.default = {
   name: 'md-chips',
@@ -3619,7 +3620,7 @@ exports.default = {
         _this.$refs.input.$el.focus();
       }));
     },
-    addChip: function addChip() {
+    addChip: function addChip(event) {
       if (this.currentChip && this.selectedChips.length < this.mdMax) {
         var value = this.currentChip.trim();
 
@@ -3628,7 +3629,12 @@ exports.default = {
           this.currentChip = null;
           this.$emit('input', this.selectedChips);
           this.$emit('change', this.selectedChips);
-          this.applyInputFocus();
+
+          if (event.type !== 'blur') {
+            this.applyInputFocus();
+          }
+        } else if (event.type === 'blur') {
+          this.currentChip = null;
         }
       }
     },
@@ -12455,7 +12461,10 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         if (!('button' in $event) && $event.keyCode !== 188) { return null; }
         $event.preventDefault();
         _vm.addChip($event)
-      }]
+      }],
+      "blur": function($event) {
+        _vm.addChip($event)
+      }
     },
     model: {
       value: (_vm.currentChip),
