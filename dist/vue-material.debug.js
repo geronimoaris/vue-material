@@ -6722,11 +6722,12 @@ exports.default = {
     },
     changeState: function changeState(checked, $event) {
       if (typeof $event !== 'undefined') {
-        this.$emit('change', checked, $event);
+        this.$emit('change', $event, checked);
 
         if (!$event.defaultPrevented) {
           this.checked = checked;
         }
+
         this.$emit('input', this.checked, $event);
       } else {
         this.checked = checked;
@@ -11528,7 +11529,33 @@ if (false) {
 /* 259 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports={render:function(){},staticRenderFns:[]}
+module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
+  return _c('transition', {
+    attrs: {
+      "name": "md-spinner",
+      "appear": ""
+    }
+  }, [_c('div', {
+    staticClass: "md-spinner",
+    class: [_vm.themeClass, _vm.classes],
+    style: (_vm.styles)
+  }, [_c('svg', {
+    staticClass: "md-spinner-draw",
+    attrs: {
+      "viewBox": "25 25 50 50"
+    }
+  }, [_c('circle', {
+    staticClass: "md-spinner-path",
+    attrs: {
+      "cx": "50",
+      "cy": "50",
+      "r": "20",
+      "stroke-width": _vm.mdStroke,
+      "stroke-dasharray": _vm.dashProgress
+    }
+  })])])])
+},staticRenderFns: []}
+module.exports.render._withStripped = true
 if (false) {
   module.hot.accept()
   if (module.hot.data) {
