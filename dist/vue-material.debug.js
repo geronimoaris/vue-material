@@ -3571,6 +3571,9 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
+//
+//
+//
 
 exports.default = {
   name: 'md-chips',
@@ -3588,6 +3591,18 @@ exports.default = {
     mdMax: {
       type: Number,
       default: Infinity
+    },
+
+    required: Boolean,
+    mdContainerClass: {
+      type: [Object, Array],
+      default: function _default() {
+        return [];
+      }
+    },
+    mdErrorMessage: {
+      type: String,
+      default: ''
     }
   },
   mixins: [_mixin2.default],
@@ -12433,6 +12448,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-chips",
     class: [_vm.themeClass, _vm.classes]
   }, [_c('md-input-container', {
+    class: _vm.mdContainerClass,
     nativeOn: {
       "click": function($event) {
         _vm.applyInputFocus($event)
@@ -12469,6 +12485,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "placeholder": _vm.mdInputPlaceholder,
       "id": _vm.inputId,
       "name": _vm.mdInputName,
+      "required": _vm.required,
       "disabled": _vm.disabled,
       "tabindex": "0"
     },
@@ -12500,7 +12517,9 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       },
       expression: "currentChip"
     }
-  })], 2)], 1)
+  }), _vm._v(" "), (_vm.mdErrorMessage && _vm.mdErrorMessage.length > 0) ? _c('span', {
+    staticClass: "md-error"
+  }, [_vm._v(_vm._s(_vm.mdErrorMessage))]) : _vm._e()], 2)], 1)
 },staticRenderFns: []}
 module.exports.render._withStripped = true
 if (false) {
