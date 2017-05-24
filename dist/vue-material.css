@@ -39,6 +39,82 @@ to {
 /* Responsive Breakpoints */
 /* Transitions - Based on Angular Material */
 /* Elevation - Based on Angular Material */
+/* Common */
+/* Responsive Breakpoints */
+/* Transitions - Based on Angular Material */
+/* Elevation - Based on Angular Material */
+/*  Text and Titles
+   ========================================================================== */
+.md-caption {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: .02em;
+  line-height: 17px; }
+
+.md-body-1, body {
+  font-size: 14px;
+  font-weight: 400;
+  letter-spacing: .01em;
+  line-height: 20px; }
+
+.md-body-2 {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .01em;
+  line-height: 24px; }
+
+.md-subheading {
+  font-size: 16px;
+  font-weight: 400;
+  letter-spacing: .01em;
+  line-height: 24px; }
+
+.md-title {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: .005em;
+  line-height: 26px; }
+
+.md-headline {
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 32px; }
+
+.md-display-1 {
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 40px; }
+
+.md-display-2 {
+  font-size: 45px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 48px; }
+
+.md-display-3 {
+  font-size: 56px;
+  font-weight: 400;
+  letter-spacing: -.005em;
+  line-height: 58px; }
+
+.md-display-4 {
+  font-size: 112px;
+  font-weight: 300;
+  letter-spacing: -.01em;
+  line-height: 112px; }
+
+/*  Links & Buttons
+   ========================================================================== */
+a:not(.md-button):not(.md-bottom-bar-item) {
+  text-decoration: none; }
+  a:not(.md-button):not(.md-bottom-bar-item):hover {
+    text-decoration: underline; }
+
+button:focus {
+  outline: none; }
+
 /*  Structure
    ========================================================================== */
 html {
@@ -97,6 +173,10 @@ iframe {
 [tabindex="-1"]:focus {
   outline: none !important; }
 
+/* Common */
+/* Responsive Breakpoints */
+/* Transitions - Based on Angular Material */
+/* Elevation - Based on Angular Material */
 .md-scrollbar::-webkit-scrollbar,
 .md-scrollbar ::-webkit-scrollbar {
   width: 10px;
@@ -932,6 +1012,7 @@ button:focus {
 }
 .md-checkbox .md-checkbox-container {
     width: 20px;
+    min-width: 20px;
     height: 20px;
     position: relative;
     border-radius: 2px;
@@ -1056,21 +1137,21 @@ button:focus {
 .md-chip .md-button.md-delete .md-ripple {
       opacity: .54;
 }
-.md-chips .md-chip {
-  margin-right: 8px;
-  margin-bottom: 4px;
-}
-.md-chips .md-input-container {
+.md-chips {
   min-height: 54px;
   display: -ms-flexbox;
   display: flex;
   -ms-flex-wrap: wrap;
       flex-wrap: wrap;
 }
+.md-chips .md-chip {
+    margin-right: 8px;
+    margin-bottom: 4px;
+}
 .md-chips .md-input {
-  width: 128px;
-  -ms-flex: 1;
-      flex: 1;
+    width: 128px;
+    -ms-flex: 1;
+        flex: 1;
 }
 /* Common */
 /* Responsive Breakpoints */
@@ -1425,6 +1506,14 @@ img.md-icon {
     .md-input-container .md-icon:not(.md-icon-delete) ~ .md-textarea,
     .md-input-container .md-icon:not(.md-icon-delete) ~ .md-file {
       margin-left: 12px;
+}
+.md-input-container .md-autocomplete,
+.md-input-container .md-autocomplete .md-menu,
+.md-input-container .md-autocomplete .md-menu .md-input {
+  width: 100%;
+}
+.md-theme-default.md-input-container .md-autocomplete .md-icon:not(.md-icon-search):after {
+  height: 0;
 }
 .md-input-container.md-input-placeholder label {
   pointer-events: auto;
@@ -4109,6 +4198,108 @@ img.md-icon {
 /* Responsive Breakpoints */
 /* Transitions - Based on Angular Material */
 /* Elevation - Based on Angular Material */
+.md-boards {
+  width: 100%;
+  height: 100% !important;
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-flow: column;
+      flex-flow: column;
+  position: relative;
+}
+.md-boards.md-transition-off * {
+    transition: none !important;
+}
+.md-boards.md-dynamic-height .md-boards-content {
+    transition: height 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.md-boards .md-boards-navigation {
+    position: absolute !important;
+    bottom: 0;
+    width: 100%;
+    height: 48px;
+    min-height: 48px;
+    position: relative;
+    z-index: 1;
+    display: -ms-flexbox;
+    display: flex;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    -ms-flex-pack: justify;
+        justify-content: space-between;
+}
+.md-boards .md-board-header {
+    min-width: 24px;
+    max-width: 24px;
+    margin: 0;
+    padding: 0 12px;
+    display: inline-block;
+    position: relative;
+    cursor: pointer;
+    border: 0;
+    background: none;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+.md-boards .md-board-header.md-disabled {
+      cursor: default;
+      pointer-events: none;
+      -webkit-user-select: none;
+         -moz-user-select: none;
+          -ms-user-select: none;
+              user-select: none;
+      -webkit-user-drag: none;
+}
+.md-boards .md-board-header-container {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-flow: column;
+        flex-flow: column;
+    -ms-flex-pack: center;
+        justify-content: center;
+    -ms-flex-align: center;
+        align-items: center;
+}
+.md-boards .md-board-header-container .md-icon {
+      margin: 0;
+}
+.md-boards .md-board-header-container .md-icon:not(.md-control) {
+      width: 16px;
+      min-width: 16px;
+      height: 16px;
+      min-height: 16px;
+      font-size: 16px;
+}
+.md-boards .md-boards-content {
+    width: 100%;
+    height: 100% !important;
+    position: relative;
+    overflow: hidden;
+}
+.md-boards .md-boards-wrapper {
+    width: 9999em;
+    height: 100% !important;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    transform: translate3d(0, 0, 0);
+    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.md-boards .md-board {
+    padding: 16px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+}
+/* Common */
+/* Responsive Breakpoints */
+/* Transitions - Based on Angular Material */
+/* Elevation - Based on Angular Material */
 .md-progress {
   width: 100%;
   height: 4px;
@@ -4180,6 +4371,86 @@ img.md-icon {
 /* Responsive Breakpoints */
 /* Transitions - Based on Angular Material */
 /* Elevation - Based on Angular Material */
+/* Common */
+/* Responsive Breakpoints */
+/* Transitions - Based on Angular Material */
+/* Elevation - Based on Angular Material */
+.md-checkbox {
+  width: auto;
+  margin: 16px 8px 16px 0;
+  display: -ms-inline-flexbox;
+  display: inline-flex;
+  position: relative;
+  cursor: pointer;
+}
+.md-checkbox .md-checkbox-container {
+    width: 20px;
+    min-width: 20px;
+    height: 20px;
+    position: relative;
+    border-radius: 2px;
+    border: 2px solid rgba(0, 0, 0, 0.54);
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.md-checkbox .md-checkbox-container:focus {
+      outline: none;
+}
+.md-checkbox .md-checkbox-container:before {
+      width: 48px;
+      height: 48px;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      transition: all 0.3s cubic-bezier(0.55, 0, 0.55, 0.2);
+      content: " ";
+}
+.md-checkbox .md-checkbox-container:after {
+      width: 6px;
+      height: 13px;
+      position: absolute;
+      top: 0;
+      left: 5px;
+      border: 2px solid #fff;
+      border-top: 0;
+      border-left: 0;
+      opacity: 0;
+      transform: rotate(45deg) scale3D(0.15, 0.15, 1);
+      transition: all 0.3s cubic-bezier(0.55, 0, 0.55, 0.2);
+      content: " ";
+}
+.md-checkbox .md-checkbox-container input {
+      position: absolute;
+      left: -999em;
+}
+.md-checkbox .md-checkbox-container .md-ink-ripple {
+      top: -16px;
+      right: -16px;
+      bottom: -16px;
+      left: -16px;
+      border-radius: 50%;
+      color: rgba(0, 0, 0, 0.54);
+}
+.md-checkbox .md-checkbox-container .md-ink-ripple .md-ripple {
+        width: 48px !important;
+        height: 48px !important;
+        top: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        left: 0 !important;
+}
+.md-checkbox .md-checkbox-label {
+    height: 20px;
+    padding-left: 8px;
+    line-height: 20px;
+    cursor: pointer;
+}
+.md-checkbox.md-checked .md-checkbox-container:after {
+  opacity: 1;
+  transform: rotate(45deg) scale3D(1, 1, 1);
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
 .md-radio {
   width: auto;
   margin: 16px 8px 16px 0;
@@ -4334,6 +4605,14 @@ img.md-icon {
 .md-select-content.md-direction-bottom-right {
     margin-top: -15px;
     margin-left: -16px;
+}
+.md-select-content .md-option[disabled] {
+    pointer-events: none;
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+    user-drag: none;
 }
 .md-select-content .md-menu-item .md-list-item-holder {
     overflow: visible;
@@ -4531,16 +4810,6 @@ img.md-icon {
   }
   .md-has-toast-bottom-left .md-fab.md-fab-bottom-left {
     transform: translate3D(0, -48px, 0);
-  }
-  .md-has-toast .md-fab.md-fab-top-right,
-  .md-has-toast .md-fab.md-fab-top-center,
-  .md-has-toast .md-fab.md-fab-top-left {
-    transform: translate3D(0, 44px, 0);
-  }
-  .md-has-toast .md-fab.md-fab-bottom-right,
-  .md-has-toast .md-fab.md-fab-bottom-center,
-  .md-has-toast .md-fab.md-fab-bottom-left {
-    transform: translate3D(0, -44px, 0);
   }
 }
 /* Common */
@@ -4783,6 +5052,177 @@ to {
     stroke-dasharray: 89, 200;
     stroke-dashoffset: -124px;
 }
+}
+/* Common */
+/* Responsive Breakpoints */
+/* Transitions - Based on Angular Material */
+/* Elevation - Based on Angular Material */
+/* Image aspect ratio calculator */
+/* Responsive breakpoints */
+.md-stepper {
+  display: -ms-flexbox;
+  display: flex;
+  -ms-flex-flow: column;
+      flex-flow: column;
+  position: relative;
+  width: 100%;
+}
+.md-stepper .md-step-header {
+    background: none;
+    border: 0;
+    cursor: pointer;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    margin: 0;
+    max-height: 72px;
+    padding: 24px;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+.md-stepper .md-step-header .md-step-icons, .md-stepper .md-step-header .md-step-titles {
+      display: inline-block;
+      vertical-align: middle;
+}
+.md-stepper .md-step-header.md-has-sub-message {
+      padding: 15px 24px;
+}
+.md-stepper .md-step-header.md-has-sub-message .md-step-title {
+        margin-bottom: -4px;
+}
+.md-stepper .md-step-header .md-step-icon {
+      border-radius: 50%;
+      font-size: 12px;
+      height: 24px;
+      line-height: 24px;
+      margin-right: 8px;
+      min-width: 24px;
+      padding: 0px 6px;
+      pointer-events: none;
+      -webkit-user-select: none;
+         -moz-user-select: none;
+          -ms-user-select: none;
+              user-select: none;
+      width: 24px;
+}
+.md-stepper .md-step-header .md-step-number {
+      border-radius: 50%;
+      display: inline-block;
+      font-size: 12px;
+      margin-right: 8px;
+      width: 24px;
+}
+.md-stepper .md-step-header .md-step-number span {
+        display: block;
+        line-height: 24px;
+        text-align: center;
+}
+.md-stepper .md-step-header .md-step-title {
+      font-size: inherit;
+}
+.md-stepper .md-step-header.md-disabled {
+      cursor: default;
+      pointer-events: none;
+      -webkit-user-select: none;
+         -moz-user-select: none;
+          -ms-user-select: none;
+              user-select: none;
+      -webkit-user-drag: none;
+}
+.md-stepper .md-steps-navigation {
+    display: -ms-flexbox;
+    display: flex;
+    height: 72px;
+    min-height: 72px;
+    overflow: hidden;
+    position: relative;
+    transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    z-index: 1;
+}
+.md-stepper .md-steps-navigation.md-alternate-labels {
+      height: 104px;
+      min-height: 104px;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container {
+      display: -ms-flexbox;
+      display: flex;
+      -ms-flex-pack: justify;
+          justify-content: space-between;
+      width: 100%;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-divider {
+        margin: 36px 0;
+        position: relative;
+        width: 100%;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels {
+        max-height: 104px;
+        text-align: center;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels.md-has-sub-message {
+          padding: 24px;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels .md-step-icon {
+          padding: 0;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels .md-step-icons, .md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels .md-step-titles {
+          display: block;
+}
+.md-stepper .md-steps-navigation .md-steps-navigation-container .md-step-header.md-alternate-labels .md-step-titles {
+          margin-top: 10px;
+}
+.md-stepper .md-steps-container {
+    height: 0;
+    overflow: hidden;
+    position: relative;
+    width: 100%;
+}
+.md-stepper .md-steps-container .md-steps-wrapper {
+      bottom: 0;
+      left: 0;
+      position: absolute;
+      right: 0;
+      top: 0;
+      transform: translate3d(0, 0, 0);
+      transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+      width: 9999em;
+}
+.md-stepper .md-steps-container .md-steps-wrapper .md-step {
+        left: 0;
+        padding: 16px;
+        position: absolute;
+        right: 0;
+        top: 0;
+}
+.md-stepper .md-steps-container .md-steps-wrapper .md-step .md-step-content {
+          padding: 16px;
+          font-size: 14px;
+          line-height: 22px;
+}
+.md-stepper .md-steps-container .md-steps-wrapper .md-step .md-step-content:last-child {
+            padding-bottom: 24px;
+}
+.md-stepper .md-steps-vertical-container .md-step .md-step-header {
+    padding-bottom: 8px;
+}
+.md-stepper .md-steps-vertical-container .md-step:not(:first-of-type) .md-step-header {
+    padding-top: 8px;
+}
+.md-stepper .md-steps-vertical-container .md-step .md-step-content {
+    margin: 0 24px 0 34px;
+    padding-bottom: 32px;
+    padding-left: 24px;
+    padding-top: 8px;
+}
+.md-stepper .md-steps-vertical-container .md-step:not(:last-of-type) .md-step-content {
+    border-left: 1px solid #BDBDBD;
+}
+@media (min-width: 660px) {
+  .md-stepper .md-steps-navigation .md-steps-navigation-container {
+    margin-bottom: -15px;
+  }
 }
 /* Common */
 /* Responsive Breakpoints */
@@ -5227,6 +5667,18 @@ to {
     transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
     overflow: hidden;
 }
+.md-tabs .md-tabs-navigation.md-has-navigation-scroll .md-tab-header-navigation-button.md-left {
+      -ms-flex-order: 1;
+          order: 1;
+}
+.md-tabs .md-tabs-navigation.md-has-navigation-scroll .md-tabs-navigation-container {
+      -ms-flex-order: 2;
+          order: 2;
+}
+.md-tabs .md-tabs-navigation.md-has-navigation-scroll .md-tab-header-navigation-button.md-right {
+      -ms-flex-order: 3;
+          order: 3;
+}
 .md-tabs .md-tabs-navigation.md-has-icon.md-has-label {
       min-height: 72px;
 }
@@ -5252,7 +5704,11 @@ to {
 .md-tabs .md-tabs-navigation-container {
     display: -ms-flexbox;
     display: flex;
-    overflow-x: scroll;
+    overflow-x: auto;
+}
+.md-tabs .md-tabs-navigation-scroll-container {
+    display: -ms-flexbox;
+    display: flex;
 }
 .md-tabs .md-tab-header {
     min-width: 72px;
@@ -5309,6 +5765,22 @@ to {
 .md-tabs .md-tab-indicator.md-to-left {
       transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), right 0.3s cubic-bezier(0.35, 0, 0.25, 1), left 0.15s cubic-bezier(0.35, 0, 0.25, 1);
 }
+.md-tabs .md-tab-header-navigation-button {
+    border: none;
+    height: 100%;
+    cursor: pointer;
+    position: relative;
+}
+.md-tabs .md-tab-header-navigation-button.md-left {
+      left: 0;
+}
+.md-tabs .md-tab-header-navigation-button.md-right {
+      right: 0;
+}
+.md-tabs .md-tab-header-navigation-button.md-disabled {
+      pointer-events: none;
+      opacity: .4;
+}
 .md-tabs .md-tabs-content {
     width: 100%;
     height: 0;
@@ -5333,7 +5805,7 @@ to {
     right: 0;
 }
 @media (min-width: 660px) {
-  .md-tabs .md-tabs-navigation-container {
+  .md-tabs .md-tabs-navigation.md-has-navigation-scroll .md-tabs-navigation-container {
     margin-bottom: -15px;
   }
 }

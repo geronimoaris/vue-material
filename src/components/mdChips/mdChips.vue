@@ -1,5 +1,5 @@
 <template>
-  <md-input-container class="md-chips" :class="[themeClass, classes]" @click.native="applyInputFocus">
+  <md-input-container class="md-chips" :class="[themeClass, classes]" @click.native="applyInputFocus" :class="mdContainerClass">
     <md-chip
       v-for="chip in selectedChips"
       :md-deletable="!mdStatic"
@@ -18,12 +18,16 @@
       :disabled="disabled"
       @keydown.native.delete="deleteLastChip"
       @keydown.native.prevent.enter="addChip"
-      @keydown.native.prevent.186="addChip"
+      @keydown.native.prevent.tab="addChip"
+      @keydown.native.prevent.188="addChip"
+      @blur.native="addChip"
       tabindex="0"
       ref="input">
     </md-input>
 
     <slot></slot>
+
+    <span class="md-error" v-if="mdErrorMessage && mdErrorMessage.length > 0">{{ mdErrorMessage }}</span>
   </md-input-container>
 </template>
 
@@ -49,6 +53,16 @@
       mdMax: {
         type: Number,
         default: Infinity
+      },
+
+      required: Boolean,
+      mdContainerClass: {
+        type: [Object, Array],
+        default: () => []
+      },
+      mdErrorMessage: {
+        type: String,
+        default: ''
       }
     },
     mixins: [theme],
@@ -79,7 +93,7 @@
           this.$refs.input.$el.focus();
         });
       },
-      addChip() {
+      addChip(event) {
         if (this.currentChip && this.selectedChips.length < this.mdMax) {
           const value = this.currentChip.trim();
 
@@ -88,7 +102,12 @@
             this.currentChip = null;
             this.$emit('input', this.selectedChips);
             this.$emit('change', this.selectedChips);
-            this.applyInputFocus();
+
+            if (event.type !== 'blur') {
+              this.applyInputFocus();
+            }
+          } else if (event.type === 'blur') {
+            this.currentChip = null;
           }
         }
       },
