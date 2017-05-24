@@ -22,7 +22,7 @@
   export default {
     name: 'md-option',
     props: {
-      value: [String, Boolean, Number]
+      value: [String, Boolean, Number, Object]
     },
     data: () => ({
       parentSelect: {},
@@ -62,6 +62,9 @@
         }
       },
       selectOption($event) {
+        if (this.disabled) {
+          return;
+        }
         this.setParentOption();
         this.$emit('selected', $event);
       }

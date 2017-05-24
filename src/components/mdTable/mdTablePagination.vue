@@ -46,14 +46,16 @@
     },
     data() {
       return {
-        subTotal: 0,
         totalItems: 0,
         currentPage: 1,
-        currentSize: 0
+        currentSize: parseInt(this.mdSize, 10)
       };
     },
     watch: {
       mdTotal(val) {
+        const sub = this.currentPage * this.currentSize;
+
+        this.subTotal = sub > val ? val : sub;
         this.totalItems = isNaN(val) ? Number.MAX_SAFE_INTEGER : parseInt(val, 10);
       },
       mdSize(val) {
@@ -69,14 +71,16 @@
       },
       shouldDisable() {
         return this.currentSize * this.currentPage >= this.totalItems;
+      },
+      subTotal() {
+        const sub = this.currentPage * this.currentSize;
+
+        return sub > this.mdTotal ? this.mdTotal : sub;
       }
     },
     methods: {
       emitPaginationEvent() {
         if (this.canFireEvents) {
-          const sub = this.currentPage * this.currentSize;
-
-          this.subTotal = sub > this.mdTotal ? this.mdTotal : sub;
           this.$emit('pagination', {
             size: this.currentSize,
             page: this.currentPage
@@ -106,9 +110,8 @@
     },
     mounted() {
       this.$nextTick(() => {
-        this.subTotal = this.currentPage * this.currentSize;
         this.mdPageOptions = this.mdPageOptions || [10, 25, 50, 100];
-        this.currentSize = this.mdPageOptions[0];
+        this.currentSize = this.mdPageOptions.includes(this.currentSize) ? this.currentSize : this.mdPageOptions[0];
         this.canFireEvents = true;
       });
     }
