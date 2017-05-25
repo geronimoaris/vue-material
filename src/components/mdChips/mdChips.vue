@@ -1,9 +1,11 @@
 <template>
-  <md-input-container class="md-chips" :class="[themeClass, classes]" @click.native="applyInputFocus" :class="mdContainerClass">
+  <md-input-container class="md-chips" :class="[themeClass, classes]" @click.native="applyInputFocus">
     <md-chip
       v-for="chip in selectedChips"
+      :md-editable="!mdStatic"
       :md-deletable="!mdStatic"
       :disabled="disabled"
+      @edit="editChip(chip)"
       @delete="deleteChip(chip)">
       <slot name="chip" :value="chip">{{ chip }}</slot>
     </md-chip>
@@ -16,18 +18,17 @@
       :id="inputId"
       :name="mdInputName"
       :disabled="disabled"
+      :required="required"
       @keydown.native.delete="deleteLastChip"
-      @keydown.native.prevent.enter="addChip"
-      @keydown.native.prevent.tab="addChip"
-      @keydown.native.prevent.188="addChip"
-      @blur.native="addChip"
+      @keydown.native.prevent.enter="addChip($event)"
+      @keydown.native.prevent.tab="addChip($event)"
+      @keydown.native.prevent.188="addChip($event)"
+      @blur.native="addChip($event)"
       tabindex="0"
       ref="input">
     </md-input>
 
     <slot></slot>
-
-    <span class="md-error" v-if="mdErrorMessage && mdErrorMessage.length > 0">{{ mdErrorMessage }}</span>
   </md-input-container>
 </template>
 
@@ -42,6 +43,7 @@
     props: {
       value: Array,
       disabled: Boolean,
+      required: Boolean,
       mdInputId: String,
       mdInputName: String,
       mdInputPlaceholder: String,
@@ -53,22 +55,12 @@
       mdMax: {
         type: Number,
         default: Infinity
-      },
-
-      required: Boolean,
-      mdContainerClass: {
-        type: [Object, Array],
-        default: () => []
-      },
-      mdErrorMessage: {
-        type: String,
-        default: ''
       }
     },
     mixins: [theme],
     data() {
       return {
-        currentChip: null,
+        currentChip: '',
         selectedChips: this.value,
         inputId: this.mdInputId || 'chips-' + uniqueId()
       };
@@ -99,7 +91,7 @@
 
           if (this.selectedChips.indexOf(value) < 0) {
             this.selectedChips.push(value);
-            this.currentChip = null;
+            this.currentChip = '';
             this.$emit('input', this.selectedChips);
             this.$emit('change', this.selectedChips);
 
@@ -107,7 +99,7 @@
               this.applyInputFocus();
             }
           } else if (event.type === 'blur') {
-            this.currentChip = null;
+            this.currentChip = '';
           }
         }
       },

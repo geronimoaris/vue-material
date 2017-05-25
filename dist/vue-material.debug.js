@@ -983,7 +983,7 @@ exports.default = {
     value: [String, Number],
     debounce: {
       type: Number,
-      default: 3E2
+      default: 75
     },
     disabled: Boolean,
     required: Boolean,
@@ -4891,12 +4891,14 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
+//
 
 exports.default = {
   name: 'md-chips',
   props: {
     value: Array,
     disabled: Boolean,
+    required: Boolean,
     mdInputId: String,
     mdInputName: String,
     mdInputPlaceholder: String,
@@ -4908,24 +4910,12 @@ exports.default = {
     mdMax: {
       type: Number,
       default: Infinity
-    },
-
-    required: Boolean,
-    mdContainerClass: {
-      type: [Object, Array],
-      default: function _default() {
-        return [];
-      }
-    },
-    mdErrorMessage: {
-      type: String,
-      default: ''
     }
   },
   mixins: [_mixin2.default],
   data: function data() {
     return {
-      currentChip: null,
+      currentChip: '',
       selectedChips: this.value,
       inputId: this.mdInputId || 'chips-' + (0, _uniqueId2.default)()
     };
@@ -4959,7 +4949,7 @@ exports.default = {
 
         if (this.selectedChips.indexOf(value) < 0) {
           this.selectedChips.push(value);
-          this.currentChip = null;
+          this.currentChip = '';
           this.$emit('input', this.selectedChips);
           this.$emit('change', this.selectedChips);
 
@@ -4967,7 +4957,7 @@ exports.default = {
             this.applyInputFocus();
           }
         } else if (event.type === 'blur') {
-          this.currentChip = null;
+          this.currentChip = '';
         }
       }
     },
@@ -8074,7 +8064,10 @@ exports.default = {
   watch: {
     value: function value(_value) {
       this.setTextAndValue(_value);
-      this.selectOptions(_value);
+
+      if (this.multiple) {
+        this.selectOptions(_value);
+      }
     },
     disabled: function disabled() {
       this.setParentDisabled();
@@ -16546,7 +16539,81 @@ if (false) {
 /* 409 */
 /***/ (function(module, exports, __webpack_require__) {
 
-module.exports={render:function(){},staticRenderFns:[]}
+module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
+  return _c('md-input-container', {
+    staticClass: "md-chips",
+    class: [_vm.themeClass, _vm.classes],
+    nativeOn: {
+      "click": function($event) {
+        _vm.applyInputFocus($event)
+      }
+    }
+  }, [_vm._l((_vm.selectedChips), (function(chip) {
+    return _c('md-chip', {
+      attrs: {
+        "md-editable": !_vm.mdStatic,
+        "md-deletable": !_vm.mdStatic,
+        "disabled": _vm.disabled
+      },
+      on: {
+        "edit": function($event) {
+          _vm.editChip(chip)
+        },
+        "delete": function($event) {
+          _vm.deleteChip(chip)
+        }
+      }
+    }, [_vm._t("chip", [_vm._v(_vm._s(chip))], {
+      value: chip
+    })], 2)
+  })), _vm._v(" "), _c('md-input', {
+    directives: [{
+      name: "show",
+      rawName: "v-show",
+      value: (!_vm.mdStatic),
+      expression: "!mdStatic"
+    }],
+    ref: "input",
+    attrs: {
+      "type": _vm.mdInputType,
+      "placeholder": _vm.mdInputPlaceholder,
+      "id": _vm.inputId,
+      "name": _vm.mdInputName,
+      "disabled": _vm.disabled,
+      "required": _vm.required,
+      "tabindex": "0"
+    },
+    nativeOn: {
+      "keydown": [function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "delete", [8, 46])) { return null; }
+        _vm.deleteLastChip($event)
+      }, function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "enter", 13)) { return null; }
+        $event.preventDefault();
+        _vm.addChip($event)
+      }, function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "tab", 9)) { return null; }
+        $event.preventDefault();
+        _vm.addChip($event)
+      }, function($event) {
+        if (!('button' in $event) && $event.keyCode !== 188) { return null; }
+        $event.preventDefault();
+        _vm.addChip($event)
+      }],
+      "blur": function($event) {
+        _vm.addChip($event)
+      }
+    },
+    model: {
+      value: (_vm.currentChip),
+      callback: function($$v) {
+        _vm.currentChip = $$v
+      },
+      expression: "currentChip"
+    }
+  }), _vm._v(" "), _vm._t("default")], 2)
+},staticRenderFns: []}
+module.exports.render._withStripped = true
 if (false) {
   module.hot.accept()
   if (module.hot.data) {
@@ -17169,6 +17236,12 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-checkbox-label",
     attrs: {
       "for": _vm.id || _vm.name
+    },
+    on: {
+      "click": function($event) {
+        $event.stopPropagation();
+        _vm.toggleCheck($event)
+      }
     }
   }, [_vm._t("default")], 2) : _vm._e()])
 },staticRenderFns: []}
