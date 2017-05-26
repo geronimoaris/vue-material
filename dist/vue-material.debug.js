@@ -17016,7 +17016,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "type": "checkbox",
       "name": _vm.name,
       "id": _vm.id,
-      "disabled": _vm.disabled
+      "disabled": _vm.disabled,
+      "tabindex": "-1"
     },
     domProps: {
       "value": _vm.value
@@ -17238,10 +17239,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "for": _vm.id || _vm.name
     },
     on: {
-      "click": function($event) {
-        $event.stopPropagation();
-        _vm.toggleCheck($event)
-      }
+      "click": _vm.toggleCheck
     }
   }, [_vm._t("default")], 2) : _vm._e()])
 },staticRenderFns: []}
