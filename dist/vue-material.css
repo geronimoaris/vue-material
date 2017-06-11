@@ -1008,7 +1008,12 @@ button:focus {
   display: -ms-inline-flexbox;
   display: inline-flex;
   position: relative;
-  cursor: pointer;
+}
+.md-checkbox:not(.md-disabled) {
+    cursor: pointer;
+}
+.md-checkbox:not(.md-disabled) .md-checkbox-label {
+      cursor: pointer;
 }
 .md-checkbox .md-checkbox-container {
     width: 20px;
@@ -1071,7 +1076,6 @@ button:focus {
     height: 20px;
     padding-left: 8px;
     line-height: 20px;
-    cursor: pointer;
 }
 .md-checkbox.md-checked .md-checkbox-container:after {
   opacity: 1;
@@ -4374,7 +4378,12 @@ img.md-icon {
   display: -ms-inline-flexbox;
   display: inline-flex;
   position: relative;
-  cursor: pointer;
+}
+.md-radio:not(.md-disabled) {
+    cursor: pointer;
+}
+.md-radio:not(.md-disabled) .md-radio-label {
+      cursor: pointer;
 }
 .md-radio .md-radio-container {
     width: 20px;
@@ -4431,7 +4440,6 @@ img.md-icon {
     height: 20px;
     padding-left: 8px;
     line-height: 20px;
-    cursor: pointer;
 }
 .md-radio.md-checked .md-radio-container:after {
   opacity: 1;
@@ -4589,6 +4597,7 @@ img.md-icon {
 .md-sidenav.md-fixed .md-sidenav-content,
 .md-sidenav.md-fixed .md-sidenav-backdrop {
   position: fixed;
+  transform: initial;
 }
 .md-sidenav .md-sidenav-content {
   width: 304px;
@@ -5390,9 +5399,20 @@ to {
 .md-table .md-table-cell.md-numeric {
       text-align: right;
 }
+.md-table .md-table-cell.md-numeric .md-icon {
+        margin: 0;
+}
 .md-table .md-table-cell.md-numeric .md-table-cell-container {
-        -ms-flex-pack: end;
-            justify-content: flex-end;
+        display: -ms-flexbox;
+        display: flex;
+        -ms-flex-pack: center;
+            justify-content: center;
+        -ms-flex-align: center;
+            align-items: center;
+}
+.md-table .md-table-cell.md-numeric .md-table-cell-container .md-icon,
+        .md-table .md-table-cell.md-numeric .md-table-cell-container .md-button .md-icon {
+          margin: auto;
 }
 .md-table .md-table-cell.md-has-action .md-table-cell-container {
       display: -ms-flexbox;
@@ -5415,6 +5435,7 @@ to {
         margin: 0 -10px 0 0;
 }
 .md-table .md-table-cell .md-button .md-icon {
+        margin: auto;
         width: 18px;
         min-width: 18px;
         height: 18px;
