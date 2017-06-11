@@ -1,6 +1,8 @@
 /* Third Party */
 import Vue from 'vue';
 import VueRouter from 'vue-router';
+import 'babel-polyfill';
+require('es6-promise').polyfill();
 
 /* Configs */
 import './config.js';
