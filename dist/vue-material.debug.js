@@ -80,14 +80,17 @@ return /******/ (function(modules) { // webpackBootstrap
 /* 0 */
 /***/ ((function(module, exports) {
 
+/* globals __VUE_SSR_CONTEXT__ */
+
 // this module is a runtime utility for cleaner component module output and will
 // be included in the final webpack user bundle
 
 module.exports = function normalizeComponent (
   rawScriptExports,
   compiledTemplate,
+  injectStyles,
   scopeId,
-  cssModules
+  moduleIdentifier /* server only */
 ) {
   var esModule
   var scriptExports = rawScriptExports = rawScriptExports || {}
@@ -115,14 +118,51 @@ module.exports = function normalizeComponent (
     options._scopeId = scopeId
   }
 
-  // inject cssModules
-  if (cssModules) {
-    var computed = Object.create(options.computed || null)
-    Object.keys(cssModules).forEach((function (key) {
-      var module = cssModules[key]
-      computed[key] = function () { return module }
-    }))
-    options.computed = computed
+  var hook
+  if (moduleIdentifier) { // server build
+    hook = function (context) {
+      // 2.3 injection
+      context =
+        context || // cached call
+        (this.$vnode && this.$vnode.ssrContext) || // stateful
+        (this.parent && this.parent.$vnode && this.parent.$vnode.ssrContext) // functional
+      // 2.2 with runInNewContext: true
+      if (!context && typeof __VUE_SSR_CONTEXT__ !== 'undefined') {
+        context = __VUE_SSR_CONTEXT__
+      }
+      // inject component styles
+      if (injectStyles) {
+        injectStyles.call(this, context)
+      }
+      // register component module identifier for async chunk inferrence
+      if (context && context._registeredComponents) {
+        context._registeredComponents.add(moduleIdentifier)
+      }
+    }
+    // used by ssr in case component is cached and beforeCreate
+    // never gets called
+    options._ssrRegister = hook
+  } else if (injectStyles) {
+    hook = injectStyles
+  }
+
+  if (hook) {
+    var functional = options.functional
+    var existing = functional
+      ? options.render
+      : options.beforeCreate
+    if (!functional) {
+      // inject component registration as beforeCreate hook
+      options.beforeCreate = existing
+        ? [].concat(existing, hook)
+        : [hook]
+    } else {
+      // register for functioal component in vue file
+      options.render = function renderWithStyleInjection (h, context) {
+        hook.call(context)
+        return existing(h, context)
+      }
+    }
   }
 
   return {
@@ -4280,9 +4320,13 @@ exports.default = {
     }
   },
   methods: {
-    setActive: function setActive(active) {
+    setActive: function setActive(active, $event) {
       if (active) {
         this.$parent.setActive(this);
+      }
+
+      if ($event) {
+        this.$emit('click', $event);
       }
     }
   },
@@ -4557,18 +4601,20 @@ Object.defineProperty(exports, "__esModule", {
 //
 //
 //
+//
 
 exports.default = {
   name: 'md-card-expand',
+  data: function data() {
+    return {
+      trigger: null,
+      content: null
+    };
+  },
+
   methods: {
-    setContentMargin: function setContentMargin() {
-      this.content.style.marginTop = -this.content.offsetHeight + 'px';
-    },
     toggle: function toggle() {
       this.$refs.expand.classList.toggle('md-active');
-    },
-    onWindowResize: function onWindowResize() {
-      window.requestAnimationFrame(this.setContentMargin);
     }
   },
   mounted: function mounted() {
@@ -4579,17 +4625,13 @@ exports.default = {
       _this.content = _this.$el.querySelector('.md-card-content');
 
       if (_this.content) {
-        _this.setContentMargin();
-
         _this.trigger.addEventListener('click', _this.toggle);
-        window.addEventListener('resize', _this.onWindowResize);
       }
     }), 200);
   },
   destroyed: function destroyed() {
     if (this.content) {
       this.trigger.removeEventListener('click', this.toggle);
-      window.removeEventListener('resize', this.onWindowResize);
     }
   }
 };
@@ -5660,9 +5702,14 @@ exports.default = {
     },
     openPicker: function openPicker() {
       if (!this.disabled) {
+        this.resetFile();
         this.$refs.fileInput.click();
         this.$refs.textInput.$el.focus();
       }
+    },
+    resetFile: function resetFile() {
+      this.parentContainer.value = '';
+      this.$refs.fileInput.value = '';
     },
     onFileSelected: function onFileSelected($event) {
       var files = $event.target.files || $event.dataTransfer.files;
@@ -6190,6 +6237,7 @@ var _getClosestVueParent2 = _interopRequireDefault(_getClosestVueParent);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+//
 //
 //
 //
@@ -6804,13 +6852,14 @@ exports.default = {
         }));
       }));
     },
-    toggleExpandList: function toggleExpandList() {
+    toggleExpandList: function toggleExpandList($event) {
       if (!this.mdExpandMultiple) {
         this.resetSiblings();
       }
 
       this.calculatePadding();
       this.active = !this.active;
+      this.$emit('click', $event);
     },
     recalculateAfterChange: function recalculateAfterChange() {
       this.transitionOff = true;
@@ -7225,8 +7274,6 @@ exports.default = {
       }
     },
     getOptions: function getOptions() {
-      console.log(this.$children);
-
       return this.$children[0].$children.filter((function (child) {
         return child.$el.classList.contains('md-option');
       }));
@@ -7324,6 +7371,7 @@ exports.default = {
           this.parentContent.close();
         }
 
+        this.$emit('click', $event);
         this.$emit('selected', $event);
       }
     }
@@ -8000,6 +8048,14 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 
 var iconSize = 24; //size of each icon from rating bar in pixels
 
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -9849,20 +9905,6 @@ exports.default = {
       }
       this.removeRow(row, this.selectedRows);
     },
-
-    // setRowSelection(isSelected, uuid) {
-    //   const row = this.mappedRows[uuid];
-    //
-    //   if (isSelected) {
-    //     this.selectedRows.push(Object.assign({}, row));
-    //     return;
-    //   }
-    //   const index = this.data.indexOf(row);
-    //
-    //   if (index !== -1) {
-    //     this.selectedRows.splice(index, 1);
-    //   }
-    // },
     setMultipleRowSelection: function setMultipleRowSelection(isSelected) {
       this.selectedRows = isSelected ? (0, _assign2.default)([], this.data) : [];
     }
@@ -10456,7 +10498,7 @@ exports.default = {
     },
     handleSingleSelection: function handleSingleSelection(value) {
       this.parentTable.setRowSelection(value, this.mdItem);
-      this.parentTable.$children[0].checkbox = this.parentTable.numberOfSelected === this.parentTable.rowsCounter;
+      this.parentTable.$children[0].checkbox = this.parentTable.numberOfSelected === this.parentTable.numberOfRows;
     },
     handleMultipleSelection: function handleMultipleSelection(value) {
       var _this = this;
@@ -12799,22 +12841,25 @@ module.exports = ".THEME_NAME :not(input):not(textarea)::selection {\n  backgrou
 /* 296 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(246)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(246)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(126),
   /* template */
   __webpack_require__(412),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdAvatar\\mdAvatar.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdAvatar.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -12828,6 +12873,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-4fb5ecf8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -12837,22 +12885,25 @@ module.exports = Component.exports
 /* 297 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(264)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(264)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(127),
   /* template */
   __webpack_require__(443),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdBackdrop\\mdBackdrop.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdBackdrop.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -12866,6 +12917,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-e09d01b8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -12875,22 +12929,25 @@ module.exports = Component.exports
 /* 298 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(234)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(234)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(128),
   /* template */
   __webpack_require__(386),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdBottomBar\\mdBottomBar.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdBottomBar.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -12904,6 +12961,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-197179a8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -12913,18 +12973,21 @@ module.exports = Component.exports
 /* 299 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(129),
   /* template */
   __webpack_require__(388),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdBottomBar\\mdBottomBarItem.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdBottomBarItem.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -12938,6 +13001,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-1b798f5b", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -12947,22 +13013,25 @@ module.exports = Component.exports
 /* 300 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(231)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(231)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(130),
   /* template */
   __webpack_require__(378),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdButtonToggle\\mdButtonToggle.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdButtonToggle.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -12976,6 +13045,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-0c5891b8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -12985,22 +13057,25 @@ module.exports = Component.exports
 /* 301 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(254)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(254)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(131),
   /* template */
   __webpack_require__(430),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdButton\\mdButton.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdButton.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13014,6 +13089,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6dc87da4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13023,22 +13101,25 @@ module.exports = Component.exports
 /* 302 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(235)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(235)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(132),
   /* template */
   __webpack_require__(389),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCard.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCard.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13052,6 +13133,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-214af038", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13061,18 +13145,21 @@ module.exports = Component.exports
 /* 303 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(133),
   /* template */
   __webpack_require__(400),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardActions.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardActions.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13086,6 +13173,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-39548bae", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13095,18 +13185,21 @@ module.exports = Component.exports
 /* 304 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(134),
   /* template */
   __webpack_require__(384),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardArea.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardArea.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13120,6 +13213,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-180bafde", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13129,18 +13225,21 @@ module.exports = Component.exports
 /* 305 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(135),
   /* template */
   __webpack_require__(429),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardContent.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardContent.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13154,6 +13253,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6cb287a5", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13163,18 +13265,21 @@ module.exports = Component.exports
 /* 306 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(136),
   /* template */
   __webpack_require__(377),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardExpand.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardExpand.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13188,6 +13293,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-0b963c9e", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13197,18 +13305,21 @@ module.exports = Component.exports
 /* 307 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(137),
   /* template */
   __webpack_require__(422),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardHeader.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardHeader.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13222,6 +13333,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-61490f11", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13231,18 +13345,21 @@ module.exports = Component.exports
 /* 308 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(138),
   /* template */
   __webpack_require__(416),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardHeaderText.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardHeaderText.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13256,6 +13373,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5744755e", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13265,18 +13385,21 @@ module.exports = Component.exports
 /* 309 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(139),
   /* template */
   __webpack_require__(382),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardMedia.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardMedia.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13290,6 +13413,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-137f4a90", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13299,18 +13425,21 @@ module.exports = Component.exports
 /* 310 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(140),
   /* template */
   __webpack_require__(373),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardMediaActions.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardMediaActions.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13324,6 +13453,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-04064406", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13333,18 +13465,21 @@ module.exports = Component.exports
 /* 311 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(141),
   /* template */
   __webpack_require__(380),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCard\\mdCardMediaCover.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCardMediaCover.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13358,6 +13493,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-0df115b7", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13367,22 +13505,25 @@ module.exports = Component.exports
 /* 312 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(257)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(257)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(142),
   /* template */
   __webpack_require__(436),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdCheckbox\\mdCheckbox.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdCheckbox.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13396,6 +13537,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-9f41cdf8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13405,18 +13549,21 @@ module.exports = Component.exports
 /* 313 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(143),
   /* template */
   __webpack_require__(396),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdChips\\mdChip.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdChip.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13430,6 +13577,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-2c2a829d", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13439,22 +13589,25 @@ module.exports = Component.exports
 /* 314 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(250)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(250)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(144),
   /* template */
   __webpack_require__(418),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdChips\\mdChips.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdChips.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13468,6 +13621,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5cd17226", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13477,22 +13633,25 @@ module.exports = Component.exports
 /* 315 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(239)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(239)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(145),
   /* template */
   __webpack_require__(399),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\mdDialog.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialog.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13506,6 +13665,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-341e9664", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13515,18 +13677,21 @@ module.exports = Component.exports
 /* 316 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(146),
   /* template */
   __webpack_require__(434),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\mdDialogActions.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogActions.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13540,6 +13705,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-89c748ae", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13549,18 +13717,21 @@ module.exports = Component.exports
 /* 317 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(147),
   /* template */
   __webpack_require__(404),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\mdDialogContent.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogContent.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13574,6 +13745,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-44792925", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13583,18 +13757,21 @@ module.exports = Component.exports
 /* 318 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(148),
   /* template */
   __webpack_require__(397),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\mdDialogTitle.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogTitle.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13608,6 +13785,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-2ec2b6f8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13617,18 +13797,21 @@ module.exports = Component.exports
 /* 319 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(149),
   /* template */
   __webpack_require__(419),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\presets\\mdDialogAlert.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogAlert.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13642,6 +13825,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5d32a2a6", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13651,18 +13837,21 @@ module.exports = Component.exports
 /* 320 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(150),
   /* template */
   __webpack_require__(442),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\presets\\mdDialogConfirm.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogConfirm.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13676,6 +13865,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-c309205e", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13685,18 +13877,21 @@ module.exports = Component.exports
 /* 321 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(151),
   /* template */
   __webpack_require__(395),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDialog\\presets\\mdDialogPrompt.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDialogPrompt.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13710,6 +13905,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-288a5063", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13719,22 +13917,25 @@ module.exports = Component.exports
 /* 322 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(251)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(251)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(152),
   /* template */
   __webpack_require__(420),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdDivider\\mdDivider.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdDivider.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13748,6 +13949,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5e9f054a", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13757,22 +13961,25 @@ module.exports = Component.exports
 /* 323 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(248)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(248)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(153),
   /* template */
   __webpack_require__(414),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdFile\\mdFile.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdFile.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13786,6 +13993,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5120f664", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13795,22 +14005,25 @@ module.exports = Component.exports
 /* 324 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(236)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(236)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(154),
   /* template */
   __webpack_require__(391),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdIcon\\mdIcon.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdIcon.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13824,6 +14037,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-2423dfc4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13833,22 +14049,25 @@ module.exports = Component.exports
 /* 325 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(261)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(261)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(155),
   /* template */
   __webpack_require__(439),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdImage\\mdImage.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdImage.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13862,6 +14081,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-b0fc1ce4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13871,18 +14093,21 @@ module.exports = Component.exports
 /* 326 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(156),
   /* template */
   __webpack_require__(392),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdInputContainer\\mdAutocomplete.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdAutocomplete.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13896,6 +14121,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-27018515", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13905,18 +14133,21 @@ module.exports = Component.exports
 /* 327 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(157),
   /* template */
   __webpack_require__(390),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdInputContainer\\mdInput.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdInput.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13930,6 +14161,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-22df0c6d", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13939,22 +14173,25 @@ module.exports = Component.exports
 /* 328 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(237)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(237)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(158),
   /* template */
   __webpack_require__(393),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdInputContainer\\mdInputContainer.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdInputContainer.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -13968,6 +14205,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-271c2778", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -13977,18 +14217,21 @@ module.exports = Component.exports
 /* 329 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(159),
   /* template */
   __webpack_require__(425),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdInputContainer\\mdTextarea.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTextarea.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14002,6 +14245,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6243e5e7", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14011,22 +14257,25 @@ module.exports = Component.exports
 /* 330 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(259)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(259)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(160),
   /* template */
   null,
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdLayout\\mdLayout.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 
 /* hot reload */
 if (false) {(function () {
@@ -14039,6 +14288,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-a85016b8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14048,22 +14300,25 @@ module.exports = Component.exports
 /* 331 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(240)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(240)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(161),
   /* template */
   __webpack_require__(401),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdList.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdList.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14077,6 +14332,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-3d60a7b8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14086,18 +14344,21 @@ module.exports = Component.exports
 /* 332 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(162),
   /* template */
   __webpack_require__(444),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListExpand.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListExpand.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14111,6 +14372,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-e8a19e44", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14120,18 +14384,21 @@ module.exports = Component.exports
 /* 333 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(163),
   /* template */
   __webpack_require__(381),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListItemButton.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListItemButton.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14145,6 +14412,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-105b12e9", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14154,18 +14424,21 @@ module.exports = Component.exports
 /* 334 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(164),
   /* template */
   __webpack_require__(411),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListItemDefault.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListItemDefault.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14179,6 +14452,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-4c7aa21a", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14188,18 +14464,21 @@ module.exports = Component.exports
 /* 335 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(165),
   /* template */
   __webpack_require__(387),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListItemExpand.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListItemExpand.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14213,6 +14492,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-1b27d651", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14222,18 +14504,21 @@ module.exports = Component.exports
 /* 336 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(166),
   /* template */
   __webpack_require__(406),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListItemLink.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListItemLink.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14247,6 +14532,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-44f9f371", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14256,18 +14544,21 @@ module.exports = Component.exports
 /* 337 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(167),
   /* template */
   __webpack_require__(398),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdList\\mdListItemRouter.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdListItemRouter.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14281,6 +14572,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-32609f80", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14290,22 +14584,25 @@ module.exports = Component.exports
 /* 338 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(263)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(263)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(168),
   /* template */
   __webpack_require__(441),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdMenu\\mdMenu.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdMenu.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14319,6 +14616,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-c2b6ddf8", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14328,18 +14628,21 @@ module.exports = Component.exports
 /* 339 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(169),
   /* template */
   __webpack_require__(433),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdMenu\\mdMenuContent.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdMenuContent.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14353,6 +14656,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-863c0af6", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14362,18 +14668,21 @@ module.exports = Component.exports
 /* 340 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(170),
   /* template */
   __webpack_require__(385),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdMenu\\mdMenuItem.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdMenuItem.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14387,6 +14696,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-185998b7", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14396,18 +14708,21 @@ module.exports = Component.exports
 /* 341 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(171),
   /* template */
   __webpack_require__(408),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdOnboarding\\mdBoard.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdBoard.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14421,6 +14736,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-47ba0acd", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14430,22 +14748,25 @@ module.exports = Component.exports
 /* 342 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(256)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(256)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(172),
   /* template */
   __webpack_require__(435),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdOnboarding\\mdBoards.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdBoards.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14459,6 +14780,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-999a2014", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14468,22 +14792,25 @@ module.exports = Component.exports
 /* 343 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(238)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(238)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(173),
   /* template */
   __webpack_require__(394),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdProgress\\mdProgress.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdProgress.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14497,6 +14824,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-2816f2c4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14506,22 +14836,25 @@ module.exports = Component.exports
 /* 344 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(230)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(230)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(174),
   /* template */
   __webpack_require__(375),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdRadio\\mdRadio.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdRadio.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14535,6 +14868,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-079386ce", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14544,22 +14880,25 @@ module.exports = Component.exports
 /* 345 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(245)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(245)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(175),
   /* template */
   __webpack_require__(410),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdRatingBar\\mdRatingBar.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdRatingBar.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14573,6 +14912,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-4c037d44", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14582,18 +14924,21 @@ module.exports = Component.exports
 /* 346 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(176),
   /* template */
   __webpack_require__(423),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSelect\\mdOption.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdOption.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14607,6 +14952,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6189afdd", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14616,22 +14964,25 @@ module.exports = Component.exports
 /* 347 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(258)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(258)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(177),
   /* template */
   __webpack_require__(437),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSelect\\mdSelect.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSelect.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14645,6 +14996,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-a6127e38", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14654,22 +15008,25 @@ module.exports = Component.exports
 /* 348 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(249)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(249)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(178),
   /* template */
   __webpack_require__(415),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSidenav\\mdSidenav.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSidenav.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14683,6 +15040,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-52912130", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14692,22 +15052,25 @@ module.exports = Component.exports
 /* 349 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(262)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(262)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(179),
   /* template */
   __webpack_require__(440),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSnackbar\\mdSnackbar.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSnackbar.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14721,6 +15084,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-b6cb8878", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14730,22 +15096,25 @@ module.exports = Component.exports
 /* 350 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(247)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(247)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(180),
   /* template */
   __webpack_require__(413),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSpeedDial\\mdSpeedDial.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSpeedDial.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14759,6 +15128,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-50d48906", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14768,22 +15140,25 @@ module.exports = Component.exports
 /* 351 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(233)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(233)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(181),
   /* template */
   __webpack_require__(383),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSpinner\\mdSpinner.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSpinner.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14797,6 +15172,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-15aaf96c", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14806,18 +15184,21 @@ module.exports = Component.exports
 /* 352 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(182),
   /* template */
   __webpack_require__(417),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdStepper\\mdStep.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdStep.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14831,6 +15212,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-5a2a8733", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14840,18 +15224,21 @@ module.exports = Component.exports
 /* 353 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(183),
   /* template */
   __webpack_require__(407),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdStepper\\mdStepHeader.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdStepHeader.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14865,6 +15252,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-462bd1c0", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14874,22 +15264,25 @@ module.exports = Component.exports
 /* 354 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(242)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(242)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(184),
   /* template */
   __webpack_require__(403),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdStepper\\mdStepper.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdStepper.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14903,6 +15296,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-4122aeba", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14912,22 +15308,25 @@ module.exports = Component.exports
 /* 355 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(253)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(253)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(185),
   /* template */
   __webpack_require__(428),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSubheader\\mdSubheader.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSubheader.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14941,6 +15340,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6c68ea1c", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14950,22 +15352,25 @@ module.exports = Component.exports
 /* 356 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(255)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(255)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(186),
   /* template */
   __webpack_require__(432),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdSwitch\\mdSwitch.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdSwitch.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -14979,6 +15384,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-7c623fe4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -14988,22 +15396,25 @@ module.exports = Component.exports
 /* 357 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(232)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(232)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(187),
   /* template */
   __webpack_require__(379),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTable.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTable.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15017,6 +15428,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-0cf99074", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15026,18 +15440,21 @@ module.exports = Component.exports
 /* 358 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(188),
   /* template */
   __webpack_require__(424),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableAlternateHeader.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableAlternateHeader.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15051,6 +15468,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-6215c943", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15060,18 +15480,21 @@ module.exports = Component.exports
 /* 359 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(189),
   /* template */
   __webpack_require__(374),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableCard.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableCard.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15085,6 +15508,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-059419a4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15094,18 +15520,21 @@ module.exports = Component.exports
 /* 360 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(190),
   /* template */
   __webpack_require__(421),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableCell.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableCell.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15119,6 +15548,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-613ea214", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15128,18 +15560,21 @@ module.exports = Component.exports
 /* 361 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(191),
   /* template */
   __webpack_require__(427),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableEdit.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableEdit.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15153,6 +15588,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-658eff9e", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15162,18 +15600,21 @@ module.exports = Component.exports
 /* 362 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(192),
   /* template */
   __webpack_require__(431),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableHead.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableHead.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15187,6 +15628,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-78def718", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15196,18 +15640,21 @@ module.exports = Component.exports
 /* 363 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(193),
   /* template */
   __webpack_require__(376),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTablePagination.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTablePagination.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15221,6 +15668,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-09f9942e", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15230,18 +15680,21 @@ module.exports = Component.exports
 /* 364 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(194),
   /* template */
   __webpack_require__(409),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTable\\mdTableRow.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTableRow.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15255,6 +15708,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-4a848bf6", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15264,18 +15720,21 @@ module.exports = Component.exports
 /* 365 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(195),
   /* template */
   __webpack_require__(372),
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTabs\\mdTab.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTab.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15289,6 +15748,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-01de8cdf", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15298,22 +15760,25 @@ module.exports = Component.exports
 /* 366 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(241)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(241)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(196),
   /* template */
   __webpack_require__(402),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTabs\\mdTabs.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTabs.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15327,6 +15792,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-3d9eb024", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15336,22 +15804,25 @@ module.exports = Component.exports
 /* 367 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(243)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(243)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(197),
   /* template */
   __webpack_require__(405),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdToolbar\\mdToolbar.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdToolbar.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15365,6 +15836,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-44d8bce4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15374,22 +15848,25 @@ module.exports = Component.exports
 /* 368 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(260)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(260)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(198),
   /* template */
   __webpack_require__(438),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdTooltip\\mdTooltip.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdTooltip.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15403,6 +15880,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-afcfcec4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15412,22 +15892,25 @@ module.exports = Component.exports
 /* 369 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(244)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(244)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(199),
   /* template */
   null,
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\components\\mdWhiteframe\\mdWhiteframe.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 
 /* hot reload */
 if (false) {(function () {
@@ -15440,6 +15923,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-489a6ee4", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15449,22 +15935,25 @@ module.exports = Component.exports
 /* 370 */
 /***/ (function(module, exports, __webpack_require__) {
 
-
-/* styles */
-__webpack_require__(252)
-
+var disposed = false
+function injectStyle (ssrContext) {
+  if (disposed) return
+  __webpack_require__(252)
+}
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(200),
   /* template */
   __webpack_require__(426),
+  /* styles */
+  injectStyle,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\core\\components\\mdInkRipple\\mdInkRipple.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 if (Component.options.functional) {console.error("[vue-loader] mdInkRipple.vue: functional components are not supported with templates, they should use render functions.")}
 
 /* hot reload */
@@ -15478,6 +15967,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-62c1a2f0", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15487,18 +15979,21 @@ module.exports = Component.exports
 /* 371 */
 /***/ (function(module, exports, __webpack_require__) {
 
+var disposed = false
 var Component = __webpack_require__(0)(
   /* script */
   __webpack_require__(201),
   /* template */
   null,
+  /* styles */
+  null,
   /* scopeId */
   null,
-  /* cssModules */
+  /* moduleIdentifier (server only) */
   null
 )
 Component.options.__file = "C:\\Work\\vue-material\\src\\core\\components\\mdTheme\\mdTheme.vue"
-if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key !== "__esModule"}))) {console.error("named exports are not supported in *.vue files.")}
+if (Component.esModule && Object.keys(Component.esModule).some((function (key) {return key !== "default" && key.substr(0, 2) !== "__"}))) {console.error("named exports are not supported in *.vue files.")}
 
 /* hot reload */
 if (false) {(function () {
@@ -15511,6 +16006,9 @@ if (false) {(function () {
   } else {
     hotAPI.reload("data-v-78f39aae", Component.options)
   }
+  module.hot.dispose((function (data) {
+    disposed = true
+  }))
 })()}
 
 module.exports = Component.exports
@@ -15655,20 +16153,16 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     attrs: {
       "disabled": _vm.currentPage === 1
     },
-    nativeOn: {
-      "click": function($event) {
-        _vm.previousPage($event)
-      }
+    on: {
+      "click": _vm.previousPage
     }
   }, [_c('md-icon', [_vm._v("keyboard_arrow_left")])], 1), _vm._v(" "), _c('md-button', {
     staticClass: "md-icon-button md-table-pagination-next",
     attrs: {
       "disabled": _vm.shouldDisable
     },
-    nativeOn: {
-      "click": function($event) {
-        _vm.nextPage($event)
-      }
+    on: {
+      "click": _vm.nextPage
     }
   }, [_c('md-icon', [_vm._v("keyboard_arrow_right")])], 1)], 1)
 },staticRenderFns: []}
@@ -15771,6 +16265,11 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     attrs: {
       "type": "button",
       "disabled": _vm.disabled
+    },
+    on: {
+      "click": function($event) {
+        _vm.$emit('click', $event)
+      }
     }
   })], 1)
 },staticRenderFns: []}
@@ -15869,10 +16368,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "target": _vm.target,
       "disabled": _vm.disabled
     },
-    nativeOn: {
-      "click": function($event) {
-        _vm.close($event)
-      }
+    on: {
+      "click": _vm.close
     }
   }, [_vm._t("default")], 2)
 },staticRenderFns: []}
@@ -15920,10 +16417,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "type": "button",
       "disabled": _vm.disabled
     },
-    nativeOn: {
-      "click": function($event) {
-        _vm.toggleExpandList($event)
-      }
+    on: {
+      "click": _vm.toggleExpandList
     }
   }), _vm._v(" "), _c('div', {
     ref: "expand",
@@ -15953,7 +16448,9 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "disabled": _vm.disabled
     },
     on: {
-      "click": _vm.setActive
+      "click": function($event) {
+        _vm.setActive(true, $event)
+      }
     }
   }, [(_vm.mdIcon || _vm.mdIconSrc || _vm.mdIconset) ? _c('md-icon', {
     attrs: {
@@ -15974,7 +16471,9 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "disabled": _vm.disabled
     },
     on: {
-      "click": _vm.setActive
+      "click": function($event) {
+        _vm.setActive(true, $event)
+      }
     }
   }, [(_vm.mdIcon || _vm.mdIconSrc || _vm.mdIconset) ? _c('md-icon', {
     attrs: {
@@ -16024,6 +16523,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-input",
     attrs: {
       "type": _vm.type,
+      "name": _vm.name,
       "disabled": _vm.disabled,
       "required": _vm.required,
       "placeholder": _vm.placeholder,
@@ -16145,9 +16645,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         "keyup": function($event) {
           if (!('button' in $event) && _vm._k($event.keyCode, "enter", 13)) { return null; }
           _vm.hit(item)
-        }
-      },
-      nativeOn: {
+        },
         "click": function($event) {
           _vm.hit(item)
         }
@@ -16175,17 +16673,13 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-count"
   }, [_vm._v(_vm._s(_vm.inputLength) + " / " + _vm._s(_vm.counterLength))]) : _vm._e(), _vm._v(" "), (_vm.mdHasPassword) ? _c('md-button', {
     staticClass: "md-icon-button md-toggle-password",
-    nativeOn: {
-      "click": function($event) {
-        _vm.togglePasswordType($event)
-      }
+    on: {
+      "click": _vm.togglePasswordType
     }
   }, [_c('md-icon', [_vm._v(_vm._s(_vm.showPassword ? 'visibility_off' : 'visibility'))])], 1) : _vm._e(), _vm._v(" "), (_vm.mdClearable && _vm.hasValue) ? _c('md-button', {
     staticClass: "md-icon-button md-clear-input",
-    nativeOn: {
-      "click": function($event) {
-        _vm.clearInput($event)
-      }
+    on: {
+      "click": _vm.clearInput
     }
   }, [_c('md-icon', [_vm._v("clear")])], 1) : _vm._e()], 2)
 },staticRenderFns: []}
@@ -16257,17 +16751,15 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     }
   })], 1)], 1), _vm._v(" "), _c('md-dialog-actions', [_c('md-button', {
     staticClass: "md-primary",
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.close('cancel')
       }
     }
   }, [_vm._v(_vm._s(_vm.mdCancelText))]), _vm._v(" "), _c('md-button', {
     staticClass: "md-primary",
-    nativeOn: {
-      "click": function($event) {
-        _vm.confirmValue($event)
-      }
+    on: {
+      "click": _vm.confirmValue
     }
   }, [_vm._v(_vm._s(_vm.mdOkText))])], 1)], 1)
 },staticRenderFns: []}
@@ -16302,10 +16794,12 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     attrs: {
       "tabindex": "-1"
     },
-    nativeOn: {
+    on: {
       "click": function($event) {
         !_vm.disabled && _vm.$emit('delete')
-      },
+      }
+    },
+    nativeOn: {
       "keyup": function($event) {
         if (!('button' in $event) && _vm._k($event.keyCode, "delete", [8, 46])) { return null; }
         !_vm.disabled && _vm.$emit('delete')
@@ -16559,7 +17053,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         "step": step,
         "md-alternate-labels": _vm.mdAlternateLabels
       },
-      nativeOn: {
+      on: {
         "click": function($event) {
           _vm.setActiveStep(step)
         }
@@ -16642,6 +17136,11 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "href": _vm.href,
       "target": _vm.target,
       "disabled": _vm.disabled
+    },
+    on: {
+      "click": function($event) {
+        _vm.$emit('click', $event)
+      }
     }
   }, [_vm._t("default")], 2), _vm._v(" "), _c('md-ink-ripple', {
     attrs: {
@@ -16773,6 +17272,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-empty-icon"
   }, _vm._l((_vm.mdMaxRating), (function(i) {
     return (_vm.srcEmptyIcon) ? _c('md-icon', {
+      key: i,
       class: [_vm.iconClasses],
       attrs: {
         "md-src": _vm.srcEmptyIcon
@@ -16793,6 +17293,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     staticClass: "md-empty-icon"
   }, _vm._l((_vm.mdMaxRating), (function(i) {
     return _c('md-icon', {
+      key: i,
       class: [_vm.iconClasses],
       attrs: {
         "md-iconset": _vm.mdEmptyIconset
@@ -16817,6 +17318,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     style: (_vm.fullIconStyle)
   }, _vm._l((_vm.mdMaxRating), (function(i) {
     return (_vm.srcFullIcon) ? _c('md-icon', {
+      key: i,
       class: [_vm.iconClasses],
       attrs: {
         "md-src": _vm.srcFullIcon
@@ -16838,6 +17340,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     style: (_vm.fullIconStyle)
   }, _vm._l((_vm.mdMaxRating), (function(i) {
     return _c('md-icon', {
+      key: i,
       class: [_vm.iconClasses],
       attrs: {
         "md-iconset": _vm.mdFullIconset
@@ -17037,7 +17540,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     attrs: {
       "step": _vm.getStepData()
     },
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.setActiveStep()
       }
@@ -17079,10 +17582,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
   return _c('md-input-container', {
     staticClass: "md-chips",
     class: [_vm.themeClass, _vm.classes],
-    nativeOn: {
-      "click": function($event) {
-        _vm.applyInputFocus($event)
-      }
+    on: {
+      "click": _vm.applyInputFocus
     }
   }, [_vm._l((_vm.selectedChips), (function(chip) {
     return _c('md-chip', {
@@ -17177,7 +17678,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     }
   }) : _c('md-dialog-content', [_vm._v(_vm._s(_vm.mdContent))]), _vm._v(" "), _c('md-dialog-actions', [_c('md-button', {
     staticClass: "md-primary",
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.close()
       }
@@ -17257,10 +17758,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     attrs: {
       "tabindex": "-1"
     },
-    nativeOn: {
-      "click": function($event) {
-        _vm.selectOption($event)
-      }
+    on: {
+      "click": _vm.selectOption
     }
   }, [(_vm.parentSelect.multiple) ? _c('md-checkbox', {
     staticClass: "md-primary",
@@ -17673,7 +18172,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "flex": "1"
     }
   }) : _vm._e(), _vm._v(" "), (_vm.mdControls) ? _c('md-button', {
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.movePrevBoard()
       }
@@ -17710,7 +18209,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "flex": "1"
     }
   }), _vm._v(" "), (_vm.mdControls) ? _c('md-button', {
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.moveNextBoard()
       }
@@ -17964,14 +18463,14 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     }
   }) : _c('md-dialog-content', [_vm._v(_vm._s(_vm.mdContent))]), _vm._v(" "), _c('md-dialog-actions', [_c('md-button', {
     staticClass: "md-primary",
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.close('cancel')
       }
     }
   }, [_vm._v(_vm._s(_vm.mdCancelText))]), _vm._v(" "), _c('md-button', {
     staticClass: "md-primary",
-    nativeOn: {
+    on: {
       "click": function($event) {
         _vm.close('ok')
       }
