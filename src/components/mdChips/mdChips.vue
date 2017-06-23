@@ -26,6 +26,7 @@
       @keydown.native.prevent.188="addChip($event)"
       @blur.native="addChip($event)"
       tabindex="0"
+      :debounce="0"
       ref="input">
     </md-input>
 
@@ -44,7 +45,10 @@
     props: {
       value: Array,
       disabled: Boolean,
-      required: Boolean,
+      debounce: {
+        type: Number,
+        default: 1E2
+      },
       mdInputId: String,
       mdInputName: String,
       mdInputPlaceholder: String,
