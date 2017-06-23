@@ -1195,14 +1195,18 @@ exports.default = {
         _this2.parentContainer.inputLength = newValue ? newValue.length : 0;
       }));
     },
-    onFocus: function onFocus() {
+    onFocus: function onFocus(event) {
       if (this.parentContainer) {
         this.parentContainer.isFocused = true;
       }
+
+      this.$emit('focus', event);
     },
-    onBlur: function onBlur() {
+    onBlur: function onBlur(event) {
       this.parentContainer.isFocused = false;
       this.setParentValue();
+
+      this.$emit('blur', event);
     },
     onInput: function onInput() {
       this.updateValues();
