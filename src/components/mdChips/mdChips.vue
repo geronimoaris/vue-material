@@ -23,7 +23,6 @@
       @keydown.native.delete="deleteLastChip"
       @keydown.native.prevent.enter="addChip($event)"
       @keydown.native.prevent.tab="addChip($event)"
-      @keydown.native.prevent.188="addChip($event)"
       @blur.native="addChip($event)"
       tabindex="0"
       :debounce="0"

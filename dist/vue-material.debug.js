@@ -5052,7 +5052,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
-//
 
 exports.default = {
   name: 'md-chips',
@@ -17678,10 +17677,6 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         _vm.addChip($event)
       }, function($event) {
         if (!('button' in $event) && _vm._k($event.keyCode, "tab", 9)) { return null; }
-        $event.preventDefault();
-        _vm.addChip($event)
-      }, function($event) {
-        if (!('button' in $event) && $event.keyCode !== 188) { return null; }
         $event.preventDefault();
         _vm.addChip($event)
       }],
