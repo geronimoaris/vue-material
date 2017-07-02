@@ -1200,13 +1200,13 @@ exports.default = {
         this.parentContainer.isFocused = true;
       }
 
-      this.$emit('focus', event);
+      this.$emit('focus', this.$el.value, event);
     },
     onBlur: function onBlur(event) {
       this.parentContainer.isFocused = false;
       this.setParentValue();
 
-      this.$emit('blur', event);
+      this.$emit('blur', this.$el.value, event);
     },
     onInput: function onInput() {
       this.updateValues();
