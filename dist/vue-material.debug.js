@@ -3186,6 +3186,7 @@ exports.default = {
 
     var getItemComponent = function getItemComponent() {
       var on = data.on;
+      var nativeOn = data.nativeOn;
       var interactionEvents = ['contextmenu', 'dblclick', 'dragend', 'mousedown', 'touchstart', 'click'];
       var childrenCount = children.length;
 
@@ -3228,6 +3229,16 @@ exports.default = {
 
         while (counter--) {
           if (on[interactionEvents[counter]]) {
+            return _mdListItemButton2.default;
+          }
+        }
+      }
+
+      if (nativeOn) {
+        var _counter = interactionEvents.length;
+
+        while (_counter--) {
+          if (nativeOn[interactionEvents[_counter]]) {
             return _mdListItemButton2.default;
           }
         }
@@ -18352,7 +18363,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         _vm.$emit('close')
       }
     }
-  }, 'md-menu', _vm.mdMenuOptions), [_vm._t("icon"), _vm._v(" "), _c('span', {
+  }, 'md-menu', _vm.mdMenuOptions, false), [_vm._t("icon"), _vm._v(" "), _c('span', {
     ref: "value",
     staticClass: "md-select-value",
     style: (_vm.valueStyle),

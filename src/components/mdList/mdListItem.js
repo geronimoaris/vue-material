@@ -13,6 +13,7 @@ export default {
   render(createElement, { children, data, props }) {
     const getItemComponent = () => {
       const on = data.on;
+      const nativeOn = data.nativeOn;
       const interactionEvents = [
         'contextmenu',
         'dblclick',
@@ -54,6 +55,16 @@ export default {
 
         while (counter--) {
           if (on[interactionEvents[counter]]) {
+            return MdListItemButton;
+          }
+        }
+      }
+
+      if (nativeOn) {
+        let counter = interactionEvents.length;
+
+        while (counter--) {
+          if (nativeOn[interactionEvents[counter]]) {
             return MdListItemButton;
           }
         }
