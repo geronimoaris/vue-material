@@ -6273,8 +6273,6 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
-//
-//
 
 exports.default = {
   name: 'md-input',
@@ -16579,14 +16577,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     on: {
       "focus": _vm.onFocus,
       "blur": _vm.onBlur,
-      "input": _vm.onInput,
-      "keydown": [function($event) {
-        if (!('button' in $event) && _vm._k($event.keyCode, "up", 38)) { return null; }
-        _vm.onInput($event)
-      }, function($event) {
-        if (!('button' in $event) && _vm._k($event.keyCode, "down", 40)) { return null; }
-        _vm.onInput($event)
-      }]
+      "input": _vm.onInput
     }
   })
 },staticRenderFns: []}
