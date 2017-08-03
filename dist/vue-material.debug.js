@@ -9983,11 +9983,16 @@ exports.default = {
     },
     removeRow: function removeRow(row) {
       var index = this.data.indexOf(row);
-      var selectedIndex = this.selectedRows.indexOf(row);
 
       if (index !== -1) {
         this.data.splice(index, 1);
       }
+
+      this.removeSelectedRow(row);
+    },
+    removeSelectedRow: function removeSelectedRow(row) {
+      var selectedIndex = this.selectedRows.indexOf(row);
+
       if (selectedIndex !== -1) {
         this.selectedRows.splice(selectedIndex, 1);
       }
@@ -9995,9 +10000,9 @@ exports.default = {
     setRowSelection: function setRowSelection(isSelected, row) {
       if (isSelected) {
         this.selectedRows.push(row);
-        return;
+      } else {
+        this.removeSelectedRow(row);
       }
-      this.removeRow(row);
     },
     setMultipleRowSelection: function setMultipleRowSelection(isSelected) {
       this.selectedRows = isSelected ? (0, _assign2.default)([], this.data) : [];
@@ -10598,9 +10603,14 @@ exports.default = {
     setRowSelection: function setRowSelection(value, row) {
       this.parentTable.setRowSelection(value, row);
     },
+    setHeadRowSelection: function setHeadRowSelection() {
+      if (this.hasSelection) {
+        this.parentTable.$children[0].checkbox = this.parentTable.numberOfSelected > 0 && this.parentTable.numberOfSelected === this.parentTable.numberOfRows;
+      }
+    },
     handleSingleSelection: function handleSingleSelection(value) {
       this.parentTable.setRowSelection(value, this.mdItem);
-      this.parentTable.$children[0].checkbox = this.parentTable.numberOfSelected === this.parentTable.numberOfRows;
+      this.setHeadRowSelection();
     },
     handleMultipleSelection: function handleMultipleSelection(value) {
       var _this = this;
@@ -10614,6 +10624,7 @@ exports.default = {
       }));
 
       this.parentTable.setMultipleRowSelection(value);
+      this.setHeadRowSelection();
 
       window.setTimeout((function () {
         return _this.parentTable.$el.classList.remove(transitionClass);
@@ -10659,6 +10670,7 @@ exports.default = {
   },
   destroyed: function destroyed() {
     this.parentTable.removeRow(this.mdItem);
+    this.setHeadRowSelection();
   },
   mounted: function mounted() {
     this.startTableRow();
