@@ -4089,7 +4089,18 @@ exports.default = {
       type: String,
       default: 'q'
     },
-    required: Boolean
+
+    maxHeight: {
+      type: Number,
+      default: 0
+    },
+
+    required: Boolean,
+
+    maxRes: {
+      type: Number,
+      default: 0
+    }
   },
   methods: {
     onFocus: function onFocus() {
@@ -4128,7 +4139,7 @@ module.exports = exports['default'];
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
-var margin = 8;
+var margin = 0;
 
 var isAboveOfViewport = function isAboveOfViewport(element, position) {
   return position.top <= margin - parseInt(getComputedStyle(element).marginTop, 10);
@@ -6040,6 +6051,7 @@ exports.default = {
       loading: false,
       query: '',
       selected: null,
+      isItemSelected: 0,
       timeout: 0,
       parentContainer: null,
       searchButton: null
@@ -6049,6 +6061,15 @@ exports.default = {
   computed: {
     listIsEmpty: function listIsEmpty() {
       return this.list.length === 0;
+    },
+    itemsEmpty: function itemsEmpty() {
+      return this.items.length === 0;
+    },
+    filterItemsByResLength: function filterItemsByResLength() {
+      if (this.maxRes === 0) {
+        return this.items;
+      }
+      return this.items.slice(0, this.maxRes);
     }
   },
   watch: {
@@ -6088,6 +6109,8 @@ exports.default = {
       this.selected = item;
       this.onInput();
       this.$emit('selected', this.selected, this.$refs.input.value);
+
+      this.closeMenu();
     },
     makeFetchRequest: function makeFetchRequest(queryObject) {
       var _this2 = this;
@@ -6100,14 +6123,29 @@ exports.default = {
 
         _this2.loading = false;
 
-        _this2.toggleMenu();
+        if (!_this2.itemsEmpty && !_this2.isItemSelected) {
+          _this2.openMenu();
+        } else {
+          _this2.closeMenu();
+        }
       }));
     },
     onFocus: function onFocus() {
+      this.isItemSelected = 0;
+
       if (this.parentContainer) {
         this.parentContainer.isFocused = true;
       }
+
       this.$refs.input.focus();
+
+      if (this.query.length >= this.minChars) {
+        if (this.minChars === 0) {
+          this.renderFilteredList();
+        }
+
+        this.openMenu();
+      }
     },
     onInput: function onInput() {
       this.updateValues();
@@ -6115,10 +6153,19 @@ exports.default = {
       this.$emit('input', this.$refs.input.value);
     },
     renderFilteredList: function renderFilteredList() {
-      if (this.filterList) {
+      if (this.filterList && this.query.length >= this.minChars) {
         this.items = this.filterList((0, _assign2.default)([], this.list), this.query);
       }
-      this.toggleMenu();
+
+      if (this.query.length < this.minChars || this.itemsEmpty) {
+        this.closeMenu();
+      }
+
+      if (!this.itemsEmpty && this.isItemSelected === 0) {
+        this.openMenu();
+      } else if (this.isItemSelected === 1) {
+        this.isItemSelected = 0;
+      }
     },
     reset: function reset() {
       this.items = [];
@@ -6168,11 +6215,58 @@ exports.default = {
         this.$refs.menu.toggle();
       }
     },
+    openMenu: function openMenu() {
+      if (this.items.length && !this.itemsEmpty) {
+        this.$refs.menu.open();
+        this.$refs.input.focus();
+      }
+    },
+    closeMenu: function closeMenu() {
+      this.$refs.menu.close();
+    },
     updateValues: function updateValues(value) {
       var newValue = value || this.$refs.input.value || this.value;
 
       this.setParentValue(newValue);
       this.parentContainer.inputLength = newValue ? newValue.length : 0;
+    },
+    contentHighlightItem: function contentHighlightItem(direction) {
+      this.menuContent = document.body.querySelector('.md-autocomplete-content');
+
+      if (this.menuContent === null) {
+        return false;
+      }
+
+      this.menuContent.__vue__.highlightItem(direction);
+
+      return true;
+    },
+    contentFireClick: function contentFireClick() {
+      this.menuContent = document.body.querySelector('.md-autocomplete-content');
+
+      if (this.menuContent === null || this.menuContent.__vue__.highlighted === false || this.menuContent.__vue__.highlighted < 1) {
+
+        this.closeMenu();
+
+        return false;
+      }
+
+      var index = this.menuContent.__vue__.$children[0].$children[this.menuContent.__vue__.highlighted - 1].index;
+
+      this.isItemSelected = 1;
+
+      this.hit(this.items[index - 1]);
+      this.closeMenu();
+
+      return true;
+    },
+    setItemSelected: function setItemSelected(item) {
+      this.isItemSelected = 2;
+      this.hit(item);
+
+      this.closeMenu();
+
+      return true;
     }
   },
   beforeDestroy: function beforeDestroy() {
@@ -6185,12 +6279,11 @@ exports.default = {
 
     this.$nextTick((function () {
       _this3.parentContainer = (0, _getClosestVueParent2.default)(_this3.$parent, 'md-input-container');
+      _this3.menuContent = document.body.querySelector('.md-autocomplete-content');
 
       if (!_this3.listIsEmpty) {
         _this3.items = (0, _assign2.default)([], _this3.list);
       }
-
-      _this3.query = _this3.value;
 
       _this3.verifyProps();
       _this3.setSearchButton();
@@ -6203,6 +6296,18 @@ exports.default = {
     }));
   }
 }; //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 //
 //
 //
@@ -6867,6 +6972,10 @@ exports.default = {
       var _this2 = this;
 
       window.requestAnimationFrame((function () {
+        if (_this2._destroyed) {
+          return;
+        }
+
         _this2.height = -_this2.$refs.expand.scrollHeight + 'px';
 
         window.setTimeout((function () {
@@ -6912,6 +7021,8 @@ exports.default = {
     }
 
     window.removeEventListener('resize', this.recalculateAfterChange);
+
+    this._destroyed = true;
   }
 }; //
 //
@@ -7061,6 +7172,26 @@ exports.default = {
     mdCloseOnSelect: {
       type: Boolean,
       default: true
+    },
+    mdAutoWidth: {
+      type: Boolean,
+      default: false
+    },
+    mdFixed: {
+      type: Boolean,
+      default: false
+    },
+    mdNoFocus: {
+      type: Boolean,
+      default: false
+    },
+    mdManualToggle: {
+      type: Boolean,
+      default: false
+    },
+    mdMaxHeight: {
+      type: Number,
+      default: 0
     }
   },
   data: function data() {
@@ -7136,6 +7267,13 @@ exports.default = {
     },
     calculateMenuContentPos: function calculateMenuContentPos() {
       var position = void 0;
+      var width = void 0;
+
+      var margin = 8;
+
+      if (this._destroyed) {
+        return;
+      }
 
       if (!this.mdDirection) {
         position = this.getPosition('bottom', 'right');
@@ -7143,7 +7281,20 @@ exports.default = {
         position = this.getPosition.apply(this, this.mdDirection.trim().split(' '));
       }
 
-      position = (0, _getInViewPosition2.default)(this.menuContent, position);
+      if (this.mdAutoWidth) {
+        width = this.menuTrigger.getBoundingClientRect().width;
+        this.menuContent.style.width = parseInt(width, 10) + 'px';
+      }
+
+      if (!this.mdFixed) {
+        position = (0, _getInViewPosition2.default)(this.menuContent, position);
+      } else if (this.mdMaxHeight === 0) {
+        this.menuContent.style.maxHeight = window.innerHeight - this.menuTrigger.getBoundingClientRect().bottom - margin + 'px';
+      } else if (this.menuContent.children[0].children.length > 0) {
+        var listElemHeight = this.menuContent.children[0].children[0].clientHeight;
+
+        this.menuContent.style.maxHeight = margin * 2 + listElemHeight * this.mdMaxHeight + 'px';
+      }
 
       this.menuContent.style.top = position.top + window.pageYOffset + 'px';
       this.menuContent.style.left = position.left + window.pageXOffset + 'px';
@@ -7164,7 +7315,11 @@ exports.default = {
 
       getComputedStyle(this.menuContent).top;
       this.menuContent.classList.add('md-active');
-      this.menuContent.focus();
+
+      if (!this.mdNoFocus) {
+        this.menuContent.focus();
+      }
+
       this.active = true;
       this.$emit('open');
     },
@@ -7176,15 +7331,25 @@ exports.default = {
           var activeRipple = _this.menuContent.querySelector('.md-ripple.md-active');
 
           _this.menuContent.removeEventListener(_transitionEndEventName2.default, close);
-          _this.menuTrigger.focus();
+
+          if (!_this.mdNoFocus) {
+            _this.menuTrigger.focus();
+          }
+
           _this.active = false;
 
           if (activeRipple) {
             activeRipple.classList.remove('md-active');
           }
 
-          document.body.removeChild(_this.menuContent);
-          document.body.removeChild(_this.backdropElement);
+          if (document.body.contains(_this.menuContent)) {
+            document.body.removeChild(_this.menuContent);
+          }
+
+          if (document.body.contains(_this.backdropElement)) {
+            document.body.removeChild(_this.backdropElement);
+          }
+
           window.removeEventListener('resize', _this.recalculateOnResize);
         }
       };
@@ -7214,7 +7379,10 @@ exports.default = {
       _this2.addNewDirectionMenuContentClass(_this2.mdDirection);
       _this2.$el.removeChild(_this2.$refs.backdrop.$el);
       _this2.menuContent.parentNode.removeChild(_this2.menuContent);
-      _this2.menuTrigger.addEventListener('click', _this2.toggle);
+
+      if (!_this2.mdManualToggle) {
+        _this2.menuTrigger.addEventListener('click', _this2.toggle);
+      }
     }));
   },
   beforeDestroy: function beforeDestroy() {
@@ -7223,8 +7391,13 @@ exports.default = {
       document.body.removeChild(this.backdropElement);
     }
 
-    this.menuTrigger.removeEventListener('click', this.toggle);
+    if (!this.mdManualToggle) {
+      this.menuTrigger.removeEventListener('click', this.toggle);
+    }
+
     window.removeEventListener('resize', this.recalculateOnResize);
+
+    this._destroyed = true;
   }
 };
 module.exports = exports['default'];
@@ -7262,7 +7435,8 @@ exports.default = {
     return {
       oldHighlight: false,
       highlighted: false,
-      itemsAmount: 0
+      itemsAmount: 0,
+      itemListCount: 0
     };
   },
 
@@ -7272,6 +7446,12 @@ exports.default = {
       this.$parent.close();
     },
     highlightItem: function highlightItem(direction) {
+      this.itemsAmount = this.$children[0].$children.length;
+
+      if (this.itemsAmount < this.highlighted - 1) {
+        this.highlighted = 1;
+      }
+
       this.oldHighlight = this.highlighted;
 
       if (direction === 'up') {
@@ -7289,6 +7469,16 @@ exports.default = {
           this.highlighted++;
         }
       }
+
+      this.$children[0].$children[this.highlighted - 1].$el.scrollIntoView({
+        block: 'end', behavior: 'smooth'
+      });
+
+      for (var i = 0; i < this.itemsAmount; i++) {
+        this.$children[0].$children[i].highlighted = false;
+      }
+
+      this.$children[0].$children[this.highlighted - 1].highlighted = true;
     },
     fireClick: function fireClick() {
       if (this.highlighted > 0) {
@@ -7348,12 +7538,21 @@ exports.default = {
   props: {
     href: String,
     target: String,
-    disabled: Boolean
+    disabled: Boolean,
+    listIndex: {
+      type: Number,
+      default: -1
+    },
+    manualHighlight: {
+      type: Boolean,
+      default: false
+    }
   },
   data: function data() {
     return {
       parentContent: {},
-      index: 0
+      index: 0,
+      highlighted: false
     };
   },
   computed: {
@@ -7362,37 +7561,46 @@ exports.default = {
         'md-highlighted': this.highlighted
       };
     },
-    highlighted: function highlighted() {
-      if (this.index === this.parentContent.highlighted) {
-        if (this.disabled) {
-          if (this.parentContent.oldHighlight > this.parentContent.highlighted) {
-            this.parentContent.highlighted--;
-          } else {
-            this.parentContent.highlighted++;
+    getHighlight: function getHighlight() {
+      if (!this.manualHighlight) {
+        if (this.index === this.parentContent.highlighted) {
+          if (this.disabled) {
+            if (this.parentContent.oldHighlight > this.parentContent.highlighted) {
+              this.parentContent.highlighted--;
+            } else {
+              this.parentContent.highlighted++;
+            }
           }
+
+          if (this.index === 1) {
+            this.parentContent.$el.scrollTop = 0;
+          } else if (this.index === this.parentContent.itemsAmount) {
+            this.parentContent.$el.scrollTop = this.parentContent.$el.scrollHeight;
+          } else {
+            this.$el.scrollIntoViewIfNeeded(false);
+          }
+
+          this.highlighted = true;
+          return true;
         }
 
-        if (this.index === 1) {
-          this.parentContent.$el.scrollTop = 0;
-        } else if (this.index === this.parentContent.itemsAmount) {
-          this.parentContent.$el.scrollTop = this.parentContent.$el.scrollHeight;
-        } else {
-          this.$el.scrollIntoViewIfNeeded(false);
-        }
-
-        return true;
+        this.highlighted = false;
+        return false;
       }
-
-      return false;
     }
   },
   methods: {
     close: function close($event) {
-      if (!this.disabled) {
-        if (this.parentMenu.mdCloseOnSelect) {
-          this.parentContent.close();
-        }
+      if (!this.parentMenu.mdManualToggle) {
+        if (!this.disabled) {
+          if (this.parentMenu.mdCloseOnSelect) {
+            this.parentContent.close();
+          }
 
+          this.$emit('click', $event);
+          this.$emit('selected', $event);
+        }
+      } else if (!this.disabled) {
         this.$emit('click', $event);
         this.$emit('selected', $event);
       }
@@ -7408,8 +7616,12 @@ exports.default = {
       throw new Error('You must wrap the md-menu-item in a md-menu-content');
     }
 
-    this.parentContent.itemsAmount++;
-    this.index = this.parentContent.itemsAmount;
+    if (this.listIndex === -1) {
+      this.parentContent.itemListCount++;
+      this.index = this.parentContent.itemListCount;
+    } else {
+      this.index = this.listIndex + 1;
+    }
   }
 };
 module.exports = exports['default'];
@@ -7785,6 +7997,10 @@ exports.default = {
       var _this2 = this;
 
       window.requestAnimationFrame((function () {
+        if (_this2._destroyed) {
+          return;
+        }
+
         _this2.calculateIndicatorPos();
         _this2.calculateBoardsWidthAndPosition();
         _this2.calculateContentHeight();
@@ -7929,6 +8145,8 @@ exports.default = {
       document.removeEventListener('touchstart', this.handleTouchStart);
       document.removeEventListener('touchend', this.handleTouchEnd);
     }
+
+    this._destroyed = true;
   }
 };
 module.exports = exports['default'];
@@ -8423,7 +8641,7 @@ exports.default = {
     id: String,
     required: Boolean,
     multiple: Boolean,
-    value: [String, Boolean, Number, Array],
+    value: [String, Boolean, Number, Array, Object],
     disabled: Boolean,
     placeholder: String,
     mdMenuClass: String,
@@ -9720,6 +9938,10 @@ exports.default = {
       var _this2 = this;
 
       window.requestAnimationFrame((function () {
+        if (_this2._destroyed) {
+          return;
+        }
+
         _this2.calculateStepsWidthAndPosition();
         _this2.calculateContentHeight();
       }));
@@ -9762,6 +9984,8 @@ exports.default = {
     }
 
     window.removeEventListener('resize', this.calculateOnResize);
+
+    this._destroyed = true;
   }
 };
 module.exports = exports['default'];
@@ -10000,9 +10224,10 @@ exports.default = {
     setRowSelection: function setRowSelection(isSelected, row) {
       if (isSelected) {
         this.selectedRows.push(row);
-      } else {
-        this.removeSelectedRow(row);
+        return;
       }
+
+      this.removeSelectedRow(row);
     },
     setMultipleRowSelection: function setMultipleRowSelection(isSelected) {
       this.selectedRows = isSelected ? (0, _assign2.default)([], this.data) : [];
@@ -10408,6 +10633,8 @@ function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { de
 //
 //
 //
+//
+//
 
 exports.default = {
   name: 'md-table-pagination',
@@ -10449,8 +10676,6 @@ exports.default = {
 
   watch: {
     mdTotal: function mdTotal(val) {
-      var sub = this.currentPage * this.currentSize;
-
       this.totalItems = isNaN(val) ? _maxSafeInteger2.default : parseInt(val, 10);
     },
     mdSize: function mdSize(val) {
@@ -10511,7 +10736,7 @@ exports.default = {
       if (_this.mdPageOptions) {
         _this.currentSize = _this.mdPageOptions.includes(_this.currentSize) ? _this.currentSize : _this.mdPageOptions[0];
       } else {
-        _this.currentSize = 0;
+        _this.currentSize = _this.mdSize;
       }
       _this.canFireEvents = true;
     }));
@@ -10713,6 +10938,7 @@ exports.default = {
     mdLabel: [String, Number],
     mdIcon: String,
     mdIconset: String,
+    mdIconSrc: String,
     mdActive: Boolean,
     mdDisabled: Boolean,
     mdOptions: {
@@ -10750,6 +10976,9 @@ exports.default = {
     mdIconset: function mdIconset() {
       this.updateTabData();
     },
+    mdIconSrc: function mdIconSrc() {
+      this.updateTabData();
+    },
 
     mdOptions: {
       deep: true,
@@ -10785,6 +11014,7 @@ exports.default = {
         label: this.mdLabel,
         icon: this.mdIcon,
         iconset: this.mdIconset,
+        iconSrc: this.mdIconSrc,
         options: this.mdOptions,
         active: this.mdActive,
         disabled: this.mdDisabled,
@@ -10849,6 +11079,9 @@ var _throttle2 = _interopRequireDefault(_throttle);
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
+//
+//
+//
 //
 //
 //
@@ -11014,7 +11247,7 @@ exports.default = {
 
       this.$set(this.tabList, tabData.id, tabData);
 
-      if (!hasActive) {
+      if (!hasActive && !tabData.disabled) {
         this.tabList[tabData.id].active = true;
       }
     },
@@ -11093,6 +11326,10 @@ exports.default = {
       var _this2 = this;
 
       window.requestAnimationFrame((function () {
+        if (_this2._destroyed) {
+          return;
+        }
+
         _this2.calculateIndicatorPos();
         _this2.calculateTabsWidthAndPosition();
         _this2.calculateContentHeight();
@@ -11130,6 +11367,10 @@ exports.default = {
       var _this4 = this;
 
       window.requestAnimationFrame((function () {
+        if (_this4._destroyed) {
+          return;
+        }
+
         _this4.calculateIndicatorPos();
         _this4.calculateScrollPos();
       }));
@@ -11143,7 +11384,7 @@ exports.default = {
       this.hasNavigationScroll = scrollWidth > clientWidth;
     },
     setActiveTab: function setActiveTab(tabData) {
-      this.hasIcons = !!tabData.icon || !!tabData.iconset;
+      this.hasIcons = !!tabData.icon || !!tabData.iconset || !!tabData.iconSrc;
       this.hasLabel = !!tabData.label;
       this.activeTab = tabData.id;
       this.activeTabNumber = this.getTabIndex(this.activeTab);
@@ -11191,6 +11432,8 @@ exports.default = {
     }
 
     window.removeEventListener('resize', this.calculateOnResize);
+
+    this._destroyed = true;
   }
 };
 module.exports = exports['default'];
@@ -12871,7 +13114,7 @@ module.exports = ".THEME_NAME.md-list {\n  background-color: BACKGROUND-COLOR;\n
 /* 279 */
 /***/ (function(module, exports) {
 
-module.exports = ".THEME_NAME.md-menu-content .md-list {\n  background-color: BACKGROUND-COLOR;\n  color: BACKGROUND-CONTRAST; }\n  .THEME_NAME.md-menu-content .md-list .md-menu-item:hover .md-button:not([disabled]), .THEME_NAME.md-menu-content .md-list .md-menu-item:focus .md-button:not([disabled]), .THEME_NAME.md-menu-content .md-list .md-menu-item.md-highlighted .md-button:not([disabled]) {\n    background-color: BACKGROUND-CONTRAST-0.12; }\n  .THEME_NAME.md-menu-content .md-list .md-menu-item[disabled] {\n    color: BACKGROUND-CONTRAST-0.38; }\n"
+module.exports = ".md-menu-content .THEME_NAME.md-list {\n  background-color: BACKGROUND-COLOR;\n  color: BACKGROUND-CONTRAST; }\n  .md-menu-content .THEME_NAME.md-list .md-menu-item:hover .md-button:not([disabled]), .md-menu-content .THEME_NAME.md-list .md-menu-item:focus .md-button:not([disabled]), .md-menu-content .THEME_NAME.md-list .md-menu-item.md-highlighted .md-button:not([disabled]) {\n    background-color: BACKGROUND-CONTRAST-0.12; }\n  .md-menu-content .THEME_NAME.md-list .md-menu-item[disabled] {\n    color: BACKGROUND-CONTRAST-0.38; }\n"
 
 /***/ }),
 /* 280 */
@@ -16238,7 +16481,10 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "for": _vm.id || _vm.name
     },
     on: {
-      "click": _vm.toggleCheck
+      "click": function($event) {
+        $event.preventDefault();
+        _vm.toggleCheck($event)
+      }
     }
   }, [_vm._t("default")], 2) : _vm._e()])
 },staticRenderFns: []}
@@ -16257,9 +16503,9 @@ if (false) {
 module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c=_vm._self._c||_h;
   return _c('div', {
     staticClass: "md-table-pagination"
-  }, [_c('span', {
+  }, [(_vm.mdPageOptions !== false) ? [_c('span', {
     staticClass: "md-table-pagination-label"
-  }, [_vm._v(_vm._s(_vm.mdLabel) + ":")]), _vm._v(" "), (_vm.mdPageOptions !== false) ? _c('md-select', {
+  }, [_vm._v(_vm._s(_vm.mdLabel) + ":")]), _vm._v(" "), _c('md-select', {
     attrs: {
       "md-menu-class": "md-pagination-select"
     },
@@ -16280,7 +16526,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
         "value": amount
       }
     }, [_vm._v(_vm._s(amount))])
-  }))) : _vm._e(), _vm._v(" "), _c('span', [_vm._v(_vm._s(((_vm.currentPage - 1) * _vm.currentSize) + 1) + "-" + _vm._s(_vm.subTotal) + " " + _vm._s(_vm.mdSeparator) + " " + _vm._s(_vm.mdTotal))]), _vm._v(" "), _c('md-button', {
+  })))] : _vm._e(), _vm._v(" "), _c('span', [_vm._v(_vm._s(((_vm.currentPage - 1) * _vm.currentSize) + 1) + "-" + _vm._s(_vm.subTotal) + " " + _vm._s(_vm.mdSeparator) + " " + _vm._s(_vm.mdTotal))]), _vm._v(" "), _c('md-button', {
     staticClass: "md-icon-button md-table-pagination-previous",
     attrs: {
       "disabled": _vm.currentPage === 1
@@ -16296,7 +16542,7 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     on: {
       "click": _vm.nextPage
     }
-  }, [_c('md-icon', [_vm._v("keyboard_arrow_right")])], 1)], 1)
+  }, [_c('md-icon', [_vm._v("keyboard_arrow_right")])], 1)], 2)
 },staticRenderFns: []}
 module.exports.render._withStripped = true
 if (false) {
@@ -16728,14 +16974,16 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
     ref: "menu",
     staticClass: "md-autocomplete-menu",
     attrs: {
-      "md-offset-x": 8,
-      "md-offset-y": "45"
+      "md-align-trigger": "",
+      "md-auto-width": "",
+      "md-fixed": "",
+      "md-no-focus": "",
+      "md-manual-toggle": "",
+      "md-max-height": _vm.maxHeight,
+      "md-close-on-select": false,
+      "md-align-trigger": ""
     }
-  }, [_c('span', {
-    attrs: {
-      "md-menu-trigger": ""
-    }
-  }), _vm._v(" "), _c('input', {
+  }, [_c('input', {
     directives: [{
       name: "model",
       rawName: "v-model",
@@ -16750,7 +16998,8 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "required": _vm.required,
       "placeholder": _vm.placeholder,
       "maxlength": _vm.maxlength,
-      "name": _vm.name
+      "name": _vm.name,
+      "md-menu-trigger": ""
     },
     domProps: {
       "value": (_vm.query)
@@ -16761,18 +17010,36 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       "input": [function($event) {
         if ($event.target.composing) { return; }
         _vm.query = $event.target.value
-      }, _vm.debounceUpdate]
+      }, _vm.debounceUpdate],
+      "keydown": [function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "up", 38)) { return null; }
+        $event.preventDefault();
+        _vm.contentHighlightItem('up')
+      }, function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "down", 40)) { return null; }
+        $event.preventDefault();
+        _vm.contentHighlightItem('down')
+      }, function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "enter", 13)) { return null; }
+        $event.preventDefault();
+        _vm.contentFireClick()
+      }, function($event) {
+        if (!('button' in $event) && _vm._k($event.keyCode, "tab", 9)) { return null; }
+        _vm.closeMenu()
+      }]
     }
-  }), _vm._v(" "), _c('md-menu-content', _vm._l((_vm.items), (function(item, index) {
+  }), _vm._v(" "), _c('md-menu-content', {
+    staticClass: "md-autocomplete-content"
+  }, _vm._l((_vm.filterItemsByResLength), (function(item, index) {
     return (_vm.items.length) ? _c('md-menu-item', {
       key: index,
+      attrs: {
+        "listIndex": index,
+        "manual-highlight": ""
+      },
       on: {
-        "keyup": function($event) {
-          if (!('button' in $event) && _vm._k($event.keyCode, "enter", 13)) { return null; }
-          _vm.hit(item)
-        },
         "click": function($event) {
-          _vm.hit(item)
+          _vm.setItemSelected(item)
         }
       }
     }, [_vm._v("\n        " + _vm._s(item[_vm.printAttribute]) + "\n      ")]) : _vm._e()
@@ -17116,16 +17383,22 @@ module.exports={render:function (){var _vm=this;var _h=_vm.$createElement;var _c
       }
     }), _vm._v(" "), _c('div', {
       staticClass: "md-tab-header-container"
-    }, [(header.icon) ? _c('md-icon', [_vm._v(_vm._s(header.icon))]) : (header.iconset) ? _c('md-icon', {
+    }, [_vm._t("header-item", [(header.icon) ? _c('md-icon', [_vm._v(_vm._s(header.icon))]) : (header.iconset) ? _c('md-icon', {
       attrs: {
         "md-iconset": header.iconset
       }
-    }, [_vm._v(_vm._s(header.icon))]) : _vm._e(), _vm._v(" "), (header.label) ? _c('span', [_vm._v(_vm._s(header.label))]) : _vm._e(), _vm._v(" "), (header.tooltip) ? _c('md-tooltip', {
+    }, [_vm._v(_vm._s(header.icon))]) : (header.iconSrc) ? _c('md-icon', {
+      attrs: {
+        "md-src": header.iconSrc
+      }
+    }) : _vm._e(), _vm._v(" "), (header.label) ? _c('span', [_vm._v(_vm._s(header.label))]) : _vm._e()], {
+      header: header
+    })], 2), _vm._v(" "), (header.tooltip) ? _c('md-tooltip', {
       attrs: {
         "md-direction": header.tooltipDirection,
         "md-delay": header.tooltipDelay
       }
-    }, [_vm._v(_vm._s(header.tooltip))]) : _vm._e()], 1)], 1)
+    }, [_vm._v(_vm._s(header.tooltip))]) : _vm._e()], 1)
   })), _vm._v(" "), _c('span', {
     ref: "indicator",
     staticClass: "md-tab-indicator",

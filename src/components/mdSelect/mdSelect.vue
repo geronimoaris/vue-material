@@ -61,7 +61,7 @@
       id: String,
       required: Boolean,
       multiple: Boolean,
-      value: [String, Boolean, Number, Array],
+      value: [String, Boolean, Number, Array, Object],
       disabled: Boolean,
       placeholder: String,
       mdMenuClass: String,
