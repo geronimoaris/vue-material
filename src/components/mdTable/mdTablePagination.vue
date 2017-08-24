@@ -1,10 +1,12 @@
 <template>
   <div class="md-table-pagination">
-    <span class="md-table-pagination-label">{{ mdLabel }}:</span>
+    <template v-if="mdPageOptions !== false">
+      <span class="md-table-pagination-label">{{ mdLabel }}:</span>
 
-    <md-select v-model="currentSize" md-menu-class="md-pagination-select" @change="changeSize" v-if="mdPageOptions !== false">
-      <md-option v-for="amount in mdPageOptions" :key="amount" :value="amount">{{ amount }}</md-option>
-    </md-select>
+      <md-select v-model="currentSize" md-menu-class="md-pagination-select" @change="changeSize">
+        <md-option v-for="amount in mdPageOptions" :key="amount" :value="amount">{{ amount }}</md-option>
+      </md-select>
+    </template>
 
     <span>{{ ((currentPage - 1) * currentSize) + 1 }}-{{ subTotal }} {{ mdSeparator }} {{ mdTotal }}</span>
 
@@ -56,8 +58,6 @@
     },
     watch: {
       mdTotal(val) {
-        const sub = this.currentPage * this.currentSize;
-
         this.totalItems = isNaN(val) ? Number.MAX_SAFE_INTEGER : parseInt(val, 10);
       },
       mdSize(val) {
@@ -116,7 +116,7 @@
         if (this.mdPageOptions) {
           this.currentSize = this.mdPageOptions.includes(this.currentSize) ? this.currentSize : this.mdPageOptions[0];
         } else {
-          this.currentSize = 0;
+          this.currentSize = this.mdSize;
         }
         this.canFireEvents = true;
       });
