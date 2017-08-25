@@ -6524,6 +6524,7 @@ exports.default = {
     clearInput: function clearInput() {
       this.inputInstance.$el.value = '';
       this.inputInstance.$emit('input', '');
+      this.inputInstance.$emit('clear');
       this.setValue('');
     },
     setValue: function setValue(value) {
