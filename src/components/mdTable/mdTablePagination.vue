@@ -2,7 +2,7 @@
   <div class="md-table-pagination">
     <span class="md-table-pagination-label">{{ mdLabel }}:</span>
 
-    <md-select v-model="currentSize" md-menu-class="md-pagination-select" @change="changeSize" v-if="mdPageOptions">
+    <md-select v-model="currentSize" md-menu-class="md-pagination-select" @change="changeSize" v-if="mdPageOptions !== false">
       <md-option v-for="amount in mdPageOptions" :key="amount" :value="amount">{{ amount }}</md-option>
     </md-select>
 
@@ -26,7 +26,10 @@
         type: [Number, String],
         default: 10
       },
-      mdPageOptions: [Array, Boolean],
+      mdPageOptions: {
+        type: [Array, Boolean],
+        default: () => [10, 25, 50, 100]
+      },
       mdPage: {
         type: [Number, String],
         default: 1
@@ -52,17 +55,14 @@
       };
     },
     watch: {
-      mdTotal(val) {
-        const sub = this.currentPage * this.currentSize;
-
-        this.subTotal = sub > val ? val : sub;
-        this.totalItems = isNaN(val) ? Number.MAX_SAFE_INTEGER : parseInt(val, 10);
+      mdTotal() {
+        this.mdTotalHandler();
       },
-      mdSize(val) {
-        this.currentSize = parseInt(val, 10);
+      mdSize() {
+        this.mdSizeHandler();
       },
-      mdPage(val) {
-        this.currentPage = parseInt(val, 10);
+      mdPage() {
+        this.mdPageHandler();
       }
     },
     computed: {
@@ -74,11 +74,23 @@
       },
       subTotal() {
         const sub = this.currentPage * this.currentSize;
-
+  
         return sub > this.mdTotal ? this.mdTotal : sub;
       }
     },
     methods: {
+      mdTotalHandler() {
+        const sub = this.currentPage * this.currentSize;
+  
+        this.subTotal = sub > this.mdTotal ? this.mdTotal : sub;
+        this.totalItems = isNaN(this.mdTotal) ? Number.MAX_SAFE_INTEGER : parseInt(this.mdTotal, 10);
+      },
+      mdSizeHandler() {
+        this.currentSize = parseInt(this.mdSize, 10);
+      },
+      mdPageHandler() {
+        this.currentPage = parseInt(this.mdPage, 10);
+      },
       emitPaginationEvent() {
         if (this.canFireEvents) {
           this.$emit('pagination', {
@@ -108,10 +120,18 @@
         }
       }
     },
+    created() {
+      this.mdTotalHandler();
+      this.mdSizeHandler();
+      this.mdPageHandler();
+    },
     mounted() {
       this.$nextTick(() => {
-        this.mdPageOptions = this.mdPageOptions || [10, 25, 50, 100];
-        this.currentSize = this.mdPageOptions.includes(this.currentSize) ? this.currentSize : this.mdPageOptions[0];
+        if (this.mdPageOptions) {
+          this.currentSize = this.mdPageOptions.includes(this.currentSize) ? this.currentSize : this.mdPageOptions[0];
+        } else {
+          this.currentSize = 0;
+        }
         this.canFireEvents = true;
       });
     }
