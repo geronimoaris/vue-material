@@ -55,14 +55,16 @@
       };
     },
     watch: {
-      mdTotal() {
-        this.mdTotalHandler();
+      mdTotal(val) {
+        const sub = this.currentPage * this.currentSize;
+
+        this.totalItems = isNaN(val) ? Number.MAX_SAFE_INTEGER : parseInt(val, 10);
       },
-      mdSize() {
-        this.mdSizeHandler();
+      mdSize(val) {
+        this.currentSize = parseInt(val, 10);
       },
-      mdPage() {
-        this.mdPageHandler();
+      mdPage(val) {
+        this.currentPage = parseInt(val, 10);
       }
     },
     computed: {
@@ -79,18 +81,6 @@
       }
     },
     methods: {
-      mdTotalHandler() {
-        const sub = this.currentPage * this.currentSize;
-  
-        this.subTotal = sub > this.mdTotal ? this.mdTotal : sub;
-        this.totalItems = isNaN(this.mdTotal) ? Number.MAX_SAFE_INTEGER : parseInt(this.mdTotal, 10);
-      },
-      mdSizeHandler() {
-        this.currentSize = parseInt(this.mdSize, 10);
-      },
-      mdPageHandler() {
-        this.currentPage = parseInt(this.mdPage, 10);
-      },
       emitPaginationEvent() {
         if (this.canFireEvents) {
           this.$emit('pagination', {
@@ -119,11 +109,6 @@
           this.emitPaginationEvent();
         }
       }
-    },
-    created() {
-      this.mdTotalHandler();
-      this.mdSizeHandler();
-      this.mdPageHandler();
     },
     mounted() {
       this.$nextTick(() => {

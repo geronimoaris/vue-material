@@ -10420,14 +10420,16 @@ exports.default = {
   },
 
   watch: {
-    mdTotal: function mdTotal() {
-      this.mdTotalHandler();
+    mdTotal: function mdTotal(val) {
+      var sub = this.currentPage * this.currentSize;
+
+      this.totalItems = isNaN(val) ? _maxSafeInteger2.default : parseInt(val, 10);
     },
-    mdSize: function mdSize() {
-      this.mdSizeHandler();
+    mdSize: function mdSize(val) {
+      this.currentSize = parseInt(val, 10);
     },
-    mdPage: function mdPage() {
-      this.mdPageHandler();
+    mdPage: function mdPage(val) {
+      this.currentPage = parseInt(val, 10);
     }
   },
   computed: {
@@ -10444,18 +10446,6 @@ exports.default = {
     }
   },
   methods: {
-    mdTotalHandler: function mdTotalHandler() {
-      var sub = this.currentPage * this.currentSize;
-
-      this.subTotal = sub > this.mdTotal ? this.mdTotal : sub;
-      this.totalItems = isNaN(this.mdTotal) ? _maxSafeInteger2.default : parseInt(this.mdTotal, 10);
-    },
-    mdSizeHandler: function mdSizeHandler() {
-      this.currentSize = parseInt(this.mdSize, 10);
-    },
-    mdPageHandler: function mdPageHandler() {
-      this.currentPage = parseInt(this.mdPage, 10);
-    },
     emitPaginationEvent: function emitPaginationEvent() {
       if (this.canFireEvents) {
         this.$emit('pagination', {
@@ -10484,11 +10474,6 @@ exports.default = {
         this.emitPaginationEvent();
       }
     }
-  },
-  created: function created() {
-    this.mdTotalHandler();
-    this.mdSizeHandler();
-    this.mdPageHandler();
   },
   mounted: function mounted() {
     var _this = this;
